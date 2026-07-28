@@ -1,0 +1,13 @@
+{
+  "name": "geberew-market-backend",
+  "version": "0.1.0",
+  "description": "Backend: SMS gateway listener, price aggregation, submission security checks",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  }
+}
