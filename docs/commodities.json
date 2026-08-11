@@ -1,12 +1,37 @@
 [
-  { "id": "teff", "name": "Teff", "unit": "quintal" },
-  { "id": "wheat", "name": "Wheat", "unit": "quintal" },
-  { "id": "maize", "name": "Maize", "unit": "quintal" },
-  { "id": "coffee", "name": "Coffee (Green)", "unit": "kg" },
-  { "id": "sorghum", "name": "Sorghum", "unit": "quintal" },
-  { "id": "barley", "name": "Barley", "unit": "quintal" },
-  { "id": "chickpeas", "name": "Chickpeas", "unit": "quintal" },
-  { "id": "onion", "name": "Onion", "unit": "kg" },
-  { "id": "potato", "name": "Potato", "unit": "kg" },
-  { "id": "tomato", "name": "Tomato", "unit": "kg" }
+  {
+    "id": "teff",
+    "englishName": "Teff",
+    "amharicName": "ጤፍ",
+    "oromoName": "Xaafii",
+    "unit": "quintal"
+  },
+  {
+    "id": "maize",
+    "englishName": "Maize",
+    "amharicName": "በቆሎ",
+    "oromoName": "Boqqolloo",
+    "unit": "quintal"
+  },
+  {
+    "id": "wheat",
+    "englishName": "Wheat",
+    "amharicName": "ስንዴ",
+    "oromoName": "Qamadii",
+    "unit": "quintal"
+  },
+  {
+    "id": "red-onion",
+    "englishName": "Red Onion",
+    "amharicName": "ቀይ ሽንኩርት",
+    "oromoName": "Shunkurtii Diimaa",
+    "unit": "kg"
+  },
+  {
+    "id": "coffee",
+    "englishName": "Coffee",
+    "amharicName": "ቡና",
+    "oromoName": "Buna",
+    "unit": "kg"
+  }
 ]
