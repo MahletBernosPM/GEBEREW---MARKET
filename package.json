@@ -1,0 +1,24 @@
+{
+  "name": "geberew---market",
+  "version": "1.0.0",
+  "description": "**Goal:** Make wholesale prices visible to farmers so they can decide when and where to sell instead of accepting whatever a middleman quotes.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MahletBernosPM/GEBEREW---MARKET.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/MahletBernosPM/GEBEREW---MARKET/issues"
+  },
+  "homepage": "https://github.com/MahletBernosPM/GEBEREW---MARKET#readme"
+}
