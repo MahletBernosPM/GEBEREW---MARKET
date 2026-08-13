@@ -1,0 +1,136 @@
+datasource db {
+  provider   = "postgresql"
+  extensions = [postgis]
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+enum Role {
+  FARMER
+  BUYER
+  COOPERATIVE
+  OPERATOR
+  ADMIN
+}
+
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  CANCELLED
+}
+
+enum SmsDirection {
+  INBOUND
+  OUTBOUND
+}
+
+model User {
+  id             String   @id @default(uuid())
+  phone          String   @unique
+  role           Role     @default(FARMER)
+  assignedRegion String?  @map("assigned_region") // Only populated for OPERATOR role
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  listings    Listing[]
+  inquiries   Inquiry[]
+  smsMessages SmsMessage[]
+
+  @@map("users")
+}
+
+model Crop {
+  id        String   @id @default(uuid())
+  nameAm    String   @map("name_am") 
+  nameOm    String   @map("name_om") 
+  nameEn    String?  @map("name_en") 
+  createdAt DateTime @default(now()) @map("created_at")
+
+  prices   Price[]
+  listings Listing[]
+
+  @@map("crops")
+}
+
+model Market {
+  id       String @id @default(uuid())
+  name     String
+  region   String
+  location Unsupported("geometry(Point, 4326)")?
+
+  prices   Price[]
+  listings Listing[]
+
+  @@map("markets")
+}
+
+model Price {
+  id            String   @id @default(uuid())
+  grade         String?
+  unit          String   
+  priceValue    Decimal  @map("price_value") @db.Decimal(12, 2)
+  source        String   
+  isVerified    Boolean  @default(false) @map("is_verified")
+  effectiveDate DateTime @default(now()) @map("effective_date")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  cropId   String @map("crop_id")
+  crop     Crop   @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  marketId String @map("market_id")
+  market   Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+
+  @@map("prices")
+}
+
+model Listing {
+  id        String        @id @default(uuid())
+  quantity  Decimal       @db.Decimal(12, 2)
+  grade     String?
+  pickup    String        @map("pickup_location") // Captures market or woreda
+  contact   String        
+  status    ListingStatus @default(ACTIVE)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  farmerId String  @map("farmer_id")
+  farmer   User    @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  cropId   String  @map("crop_id")
+  crop     Crop    @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  marketId String? @map("market_id") 
+  market   Market? @relation(fields: [marketId], references: [id], onDelete: SetNull)
+
+  inquiries Inquiry[]
+
+  @@map("listings")
+}
+
+model Inquiry {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  buyerId   String  @map("buyer_id")
+  buyer     User    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  listingId String  @map("listing_id")
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("inquiries")
+}
+
+model SmsMessage {
+  id        String       @id @default(uuid())
+  sender    String       
+  intent    String?      
+  response  String       
+  direction SmsDirection
+  cost      Decimal?     @db.Decimal(8, 4) 
+  status    String?      
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  userId String? @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("sms_messages")
+}
