@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { queueListing, syncQueuedListings } from './offlineSync';
+import { queueListing, syncQueuedListings, cacheMyListing, generateListingId } from './offlineSync';
 
 const COMMODITIES = [
   { id: 'teff', name: 'Teff' },
@@ -14,37 +14,58 @@ const COMMODITIES = [
   { id: 'tomato', name: 'Tomato' },
 ];
 
+const GRADES = ['Grade A', 'Grade B', 'Grade C'];
+
 // TASK 4: Farmer Listing Form & PWA Offline Sync
-// Lets a farmer list produce for sale; queues locally if offline and syncs when back online
 export default function FarmerListingForm() {
   const [form, setForm] = useState({
-    farmerName: '',
-    phone: '',
     commodityId: '',
     quantity: '',
-    price: '',
-    region: '',
+    grade: '',
+    pickupLocation: '',
+    contact: '',
   });
+  const [photo, setPhoto] = useState(null); // base64 data URL, optional
   const [status, setStatus] = useState(null);
 
   useEffect(() => {
-    // Try to flush any queued listings on mount and whenever we come back online
     syncQueuedListings();
     window.addEventListener('online', syncQueuedListings);
     return () => window.removeEventListener('online', syncQueuedListings);
   }, []);
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return setPhoto(null);
+    const reader = new FileReader();
+    reader.onload = () => setPhoto(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const resetForm = () => {
+    setForm({ commodityId: '', quantity: '', grade: '', pickupLocation: '', contact: '' });
+    setPhoto(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus('submitting');
 
+    // Client-generated ID: identifies this listing from creation through
+    // offline queueing and eventual sync, so retries never duplicate it.
+    const listing = {
+      id: generateListingId(),
+      ...form,
+      photo,
+      createdAt: new Date().toISOString(),
+    };
+
     if (!navigator.onLine) {
-      await queueListing(form);
+      await queueListing(listing);
       setStatus('queued');
+      resetForm();
       return;
     }
 
@@ -52,37 +73,39 @@ export default function FarmerListingForm() {
       const res = await fetch('/api/listings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(listing),
       });
-      if (res.ok) {
-        setStatus('success');
-      } else {
-        await queueListing(form);
-        setStatus('queued');
-      }
+      if (!res.ok) throw new Error('Server error');
+      await cacheMyListing({ ...listing, synced: true });
+      setStatus('success');
     } catch {
-      await queueListing(form);
+      await queueListing(listing);
       setStatus('queued');
     }
+    resetForm();
   };
 
   return (
     <form onSubmit={handleSubmit}>
-      <input name="farmerName" placeholder="Farmer name" onChange={handleChange} required />
-      <input name="phone" placeholder="Phone number" onChange={handleChange} required />
-      <select name="commodityId" onChange={handleChange} required defaultValue="">
-        <option value="" disabled>Select commodity</option>
+      <select name="commodityId" value={form.commodityId} onChange={handleChange} required>
+        <option value="" disabled>Select crop</option>
         {COMMODITIES.map((c) => (
           <option key={c.id} value={c.id}>{c.name}</option>
         ))}
       </select>
-      <input name="quantity" placeholder="Quantity" onChange={handleChange} required />
-      <input name="price" placeholder="Asking price" onChange={handleChange} required />
-      <input name="region" placeholder="Region (e.g. Oromia)" onChange={handleChange} required />
+      <input name="quantity" placeholder="Quantity (e.g. 10 quintal)" value={form.quantity} onChange={handleChange} required />
+      <select name="grade" value={form.grade} onChange={handleChange} required>
+        <option value="" disabled>Select grade</option>
+        {GRADES.map((g) => (
+          <option key={g} value={g}>{g}</option>
+        ))}
+      </select>
+      <input name="pickupLocation" placeholder="Pickup location" value={form.pickupLocation} onChange={handleChange} required />
+      <input name="contact" placeholder="Contact (phone number)" value={form.contact} onChange={handleChange} required />
+      <input type="file" accept="image/*" onChange={handlePhotoChange} />
       <button type="submit">List produce</button>
       {status === 'success' && <p>Listed successfully!</p>}
       {status === 'queued' && <p>You're offline — this will sync automatically when connection returns.</p>}
-      {status === 'error' && <p>Something went wrong.</p>}
     </form>
   );
 }

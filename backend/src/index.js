@@ -14,7 +14,7 @@ let submissions = [];
  */
 app.post('/api/submissions', (req, res) => {
   const { commodityId, price, cooperativeName, region } = req.body;
-
+ 
   // TODO (Security check task): validate commodityId exists in docs/commodities.json,
   // validate price is a positive number within a sane range,
   // rate-limit repeated submissions from the same source.
@@ -69,3 +69,19 @@ app.post('/api/sms/inbound', (req, res) => {
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
+
+// In-memory store for farmer listings, keyed by client-generated id
+let listings = {};
+
+app.post('/api/listings', (req, res) => {
+  const { id, commodityId, quantity, grade, pickupLocation, contact } = req.body;
+  if (!id || !commodityId || !quantity || !grade || !pickupLocation || !contact) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  // Upsert by id — safe to retry without creating duplicates
+  listings[id] = {
+    ...req.body,
+    listedAt: listings[id]?.listedAt || new Date().toISOString(),
+  };
+  res.status(201).json({ ok: true, id });
+});
