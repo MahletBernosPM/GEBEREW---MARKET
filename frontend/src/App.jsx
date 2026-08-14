@@ -9,12 +9,12 @@ export default function App() {
       <h1>Geberew Market</h1>
       {/* <h2>Price Board</h2>
       {/* <PriceBoard /> */}
-      <h2>My Listings</h2>
-      <MyListings />
       <h2>Farmer Listing</h2>
       <FarmerListingForm />
       <h2>Cooperative Submission</h2>
       <SubmissionForm />
+      <h2>My Listings</h2>
+      <MyListings />
     </div>
   );
 }

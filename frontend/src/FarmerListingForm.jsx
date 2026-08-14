@@ -28,11 +28,15 @@ export default function FarmerListingForm() {
   const [photo, setPhoto] = useState(null); // base64 data URL, optional
   const [status, setStatus] = useState(null);
 
-  useEffect(() => {
-    syncQueuedListings();
-    window.addEventListener('online', syncQueuedListings);
-    return () => window.removeEventListener('online', syncQueuedListings);
-  }, []);
+ useEffect(() => {
+  const runSync = async () => {
+    await syncQueuedListings();
+    setStatus((prev) => (prev === 'queued' ? 'success' : prev));
+  };
+  runSync();
+  window.addEventListener('online', runSync);
+  return () => window.removeEventListener('online', runSync);
+}, []);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -103,6 +107,12 @@ export default function FarmerListingForm() {
       <input name="pickupLocation" placeholder="Pickup location" value={form.pickupLocation} onChange={handleChange} required />
       <input name="contact" placeholder="Contact (phone number)" value={form.contact} onChange={handleChange} required />
       <input type="file" accept="image/*" onChange={handlePhotoChange} />
+      {photo && (
+  <div>
+    <img src={photo} alt="Preview" style={{ maxWidth: '150px', display: 'block', marginTop: '8px' }} />
+    <button type="button" onClick={() => setPhoto(null)}>Remove photo</button>
+  </div>
+)}
       <button type="submit">List produce</button>
       {status === 'success' && <p>Listed successfully!</p>}
       {status === 'queued' && <p>You're offline — this will sync automatically when connection returns.</p>}

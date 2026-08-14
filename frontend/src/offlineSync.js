@@ -4,7 +4,7 @@
 // price board data (so today's prices are viewable offline).
 
 const DB_NAME = 'geberew-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const PENDING_STORE = 'pendingListings';
 const MY_LISTINGS_STORE = 'myListings';
 const PRICE_BOARD_STORE = 'priceBoardCache';
