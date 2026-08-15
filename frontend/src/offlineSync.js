@@ -123,3 +123,28 @@ export async function getCachedPriceBoard() {
     req.onerror = () => reject(req.error);
   });
 }
+
+
+// --- Edit / delete a listing (requires connection — not queued offline) ---
+export async function updateListingRemote(id, patch) {
+  const res = await fetch(`/api/listings/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error('Update failed');
+  return res.json();
+}
+
+export async function deleteListingRemote(id) {
+  const res = await fetch(`/api/listings/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Delete failed');
+}
+
+export async function updateCachedListing(id, patch) {
+  await putRecord(MY_LISTINGS_STORE, patch.id ? patch : { ...patch, id });
+}
+
+export async function removeCachedListing(id) {
+  await deleteRecord(MY_LISTINGS_STORE, id);
+}
