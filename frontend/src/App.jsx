@@ -12,7 +12,7 @@ export default function App() {
       <Header />
       <Hero />
       
-<main className="max-w-6xl mx-auto px-6 py-8 w-full">
+      <main className="mx-auto px-8 py-8 w-full">
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div className="bg-white border border-stone-200 rounded-xl shadow-sm p-6">
       <h2 className="text-lg font-semibold text-green-800 mb-4">🌾 Farmer Listing</h2>

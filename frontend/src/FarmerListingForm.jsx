@@ -211,12 +211,7 @@ return (
     >
       List Produce
     </button>
-    {status === 'success' && (
-  <p className="bg-green-50 text-green-800 rounded-md px-3 py-2 text-sm">
-    ✅ Produce listed successfully!<br />
-    Your {form.commodityId || 'listing'} is now available to buyers.
-  </p>
-)}
+    
     {status?.type === 'success' && (
   <p className="bg-green-50 text-green-800 rounded-md px-3 py-2 text-sm">
     ✅ Produce listed successfully!<br />
