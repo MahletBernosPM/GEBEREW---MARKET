@@ -24,14 +24,14 @@
     "id": "red-onion",
     "englishName": "Red Onion",
     "amharicName": "ቀይ ሽንኩርት",
-    "oromoName": "Shunkurtii Diimaa",
-    "unit": "kg"
+    "oromoName": "Qullubbii Diimaa",
+    "unit": "quintal"
   },
   {
     "id": "coffee",
     "englishName": "Coffee",
     "amharicName": "ቡና",
     "oromoName": "Buna",
-    "unit": "kg"
+    "unit": "quintal"
   }
 ]
