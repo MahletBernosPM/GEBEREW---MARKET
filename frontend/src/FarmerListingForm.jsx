@@ -18,14 +18,13 @@ const GRADES = ['Grade A', 'Grade B', 'Grade C'];
 
 // TASK 4: Farmer Listing Form & PWA Offline Sync
 export default function FarmerListingForm() {
- const [form, setForm] = useState({
+const [form, setForm] = useState({
   commodityId: '',
   quantity: '',
   unit: 'Quintal',
   grade: '',
   pickupLocation: '',
   contact: '',
-  price: '',
 });
   const [photo, setPhoto] = useState(null);
   const [status, setStatus] = useState(null);
@@ -51,7 +50,7 @@ export default function FarmerListingForm() {
   };
 
 const resetForm = () => {
-  setForm({ commodityId: '', quantity: '', unit: 'Quintal', grade: '', pickupLocation: '', contact: '', price: '' });
+  setForm({ commodityId: '', quantity: '', unit: 'Quintal', grade: '', pickupLocation: '', contact: '' });
   setPhoto(null);
 };
 
@@ -150,18 +149,6 @@ return (
         ))}
       </select>
     </div>
-
-    <div>
-  <label className="block text-sm font-medium text-stone-700 mb-1">Price (ETB / Unit)</label>
-  <input
-    name="price"
-    placeholder="e.g. 8500"
-    value={form.price}
-    onChange={handleChange}
-    required
-    className="w-full border border-stone-300 rounded-md px-3 py-2 text-sm bg-orange-50 focus:outline-none focus:border-orange-600 focus:bg-white"
-  />
-</div>
 
     <div>
       <label className="block text-sm font-medium text-stone-700 mb-1">Pickup Location</label>
