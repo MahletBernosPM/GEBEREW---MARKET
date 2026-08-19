@@ -16,8 +16,11 @@ export default function MyListings() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    getMyListings().then(setListings);
-  }, []);
+  const refresh = () => getMyListings().then(setListings);
+  refresh();
+  window.addEventListener('listings-updated', refresh);
+  return () => window.removeEventListener('listings-updated', refresh);
+}, []);
 
   const startEdit = (listing) => {
     setEditingId(listing.id);

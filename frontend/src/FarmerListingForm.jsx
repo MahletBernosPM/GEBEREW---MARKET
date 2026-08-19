@@ -66,8 +66,9 @@ const resetForm = () => {
       createdAt: new Date().toISOString(),
     };
 
-   if (!navigator.onLine) {
+  if (!navigator.onLine) {
   await queueListing(listing);
+  window.dispatchEvent(new Event('listings-updated'));
   setStatus({ type: 'queued' });
   resetForm();
   return;
@@ -79,9 +80,10 @@ const resetForm = () => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(listing),
   });
-  if (!res.ok) throw new Error('Server error');
-  await cacheMyListing({ ...listing, synced: true });
-  setStatus({ type: 'success', crop: form.commodityId });
+if (!res.ok) throw new Error('Server error');
+await cacheMyListing({ ...listing, synced: true });
+window.dispatchEvent(new Event('listings-updated'));
+setStatus({ type: 'success', crop: form.commodityId });
 } catch {
   await queueListing(listing);
   setStatus({ type: 'queued' });
