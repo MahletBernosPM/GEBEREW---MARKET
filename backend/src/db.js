@@ -1,6 +1,8 @@
-const { PrismaClient } = require("@prisma/client");
+const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 /**
  * TODO(auth): There is no real authentication/session system yet.
@@ -14,7 +16,10 @@ const prisma = new PrismaClient();
  */
 async function withOperatorContext(callback) {
   return prisma.$transaction(async (tx) => {
-    await tx.$executeRawUnsafe(`SET LOCAL app.current_role = 'OPERATOR'`);
+    // "current_role" is quoted because it's a reserved Postgres keyword
+    // (it's also a built-in function, like current_user) — unquoted, the
+    // SET statement fails to parse even though it's namespaced under "app."
+    await tx.$executeRawUnsafe(`SET LOCAL app."current_role" = 'OPERATOR'`);
     await tx.$executeRawUnsafe(`SET LOCAL app.current_region = ''`);
     return callback(tx);
   });
