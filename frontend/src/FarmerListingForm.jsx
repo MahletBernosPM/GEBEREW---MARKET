@@ -107,10 +107,8 @@ export default function FarmerListingForm() {
             Select crop
           </option>
           {COMMODITIES.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
+  <option key={c.id} value={c.id}>{c.label}</option>
+))}
         </select>
       </div>
 
@@ -198,7 +196,7 @@ export default function FarmerListingForm() {
         <label className="block text-sm font-medium text-stone-700 mb-1">
           Product Photo
         </label>
-        <label className="flex items-center justify-center gap-2 border border-dashed border-stone-300 rounded-md px-3 py-3 text-sm text-stone-500 cursor-pointer hover:bg-orange-50">
+        <label className="inline-flex items-center justify-center gap-2 border border-dashed border-stone-300 rounded-md px-4 py-2.5 text-sm text-stone-500 cursor-pointer hover:bg-orange-50">
           📷 Upload product photo
           <input
             type="file"
@@ -226,11 +224,11 @@ export default function FarmerListingForm() {
       </div>
 
       <button
-        type="submit"
-        className="bg-orange-800 text-white font-semibold rounded-md px-4 py-2.5 text-sm hover:bg-orange-900 transition"
-      >
-        List Produce
-      </button>
+  type="submit"
+  className="self-start bg-orange-800 text-white font-semibold rounded-md px-8 py-2.5 text-sm hover:bg-orange-900 transition"
+>
+  List Produce
+</button>
 
       {status?.type === "success" && (
         <p className="bg-green-50 text-green-800 rounded-md px-3 py-2 text-sm">

@@ -227,11 +227,9 @@ export default function CooperativeSubmissionForm() {
                 <option value="" disabled>
                   Select crop
                 </option>
-                {COMMODITIES.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+               {COMMODITIES.map((c) => (
+  <option key={c.id} value={c.id}>{c.label}</option>
+))}
               </select>
             </div>
             <div className="grid grid-cols-2 gap-2">
