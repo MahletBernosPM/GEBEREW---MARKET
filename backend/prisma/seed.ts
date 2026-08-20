@@ -2,28 +2,35 @@
  * prisma/seed.ts
  *
  * Seeds the development database with:
- *   - 5 Ethiopian wholesale markets with real GPS coordinates
- *   - 5 key crops with Amharic and Afaan Oromoo names
- *   - 1 sample verified price per crop
+ *   - 5 Ethiopian wholesale markets with geo-points
+ *   - 5 crops loaded from docs/commodities.json
+ *   - 1 sample verified price per crop at Merkato
  *
  * Run with:
- *   npx prisma db seed
- *
- * Or:
- *   npx tsx prisma/seed.ts
+ *   npm run seed
  */
 
-import "dotenv/config";
+import * as dotenv from 'dotenv';
+dotenv.config();
 
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is not defined in the environment.");
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+
+// ---------------------------------------------------------------------------
+// Prisma 7 database connection
+// ---------------------------------------------------------------------------
+
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL is not defined');
 }
 
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
 });
 
 const prisma = new PrismaClient({
@@ -31,107 +38,69 @@ const prisma = new PrismaClient({
 });
 
 // ---------------------------------------------------------------------------
-// Data
+// Commodity data
 // ---------------------------------------------------------------------------
 
+type Commodity = {
+  id: string;
+  englishName: string;
+  amharicName: string;
+  oromoName: string;
+  unit: string;
+};
+
 /**
- * Real Ethiopian wholesale markets with WGS-84 coordinates.
+ * Load Task 2 commodity data from:
  *
- * PostGIS uses:
- *   longitude first
- *   latitude second
+ * GEBEREW---MARKET/docs/commodities.json
+ *
+ * The seed file is located at:
+ *
+ * GEBEREW---MARKET/backend/prisma/seed.ts
  */
+const commoditiesPath = resolve(
+  process.cwd(),
+  '../docs/commodities.json'
+);
+
+const COMMODITIES: Commodity[] = JSON.parse(
+  readFileSync(commoditiesPath, 'utf-8')
+);
+
+// ---------------------------------------------------------------------------
+// Market data
+// ---------------------------------------------------------------------------
+
 const MARKETS = [
   {
-    name: "Merkato",
-    region: "Addis Ababa",
+    name: 'Merkato',
+    region: 'Addis Ababa',
     lng: 38.7369,
     lat: 9.0192,
   },
   {
-    name: "Bahir Dar Wholesale Market",
-    region: "Amhara",
+    name: 'Bahir Dar Wholesale Market',
+    region: 'Amhara',
     lng: 37.3614,
     lat: 11.5742,
   },
   {
-    name: "Adama Grain Market",
-    region: "Oromia",
+    name: 'Adama Grain Market',
+    region: 'Oromia',
     lng: 39.27,
     lat: 8.54,
   },
   {
-    name: "Jimma Coffee Market",
-    region: "Oromia",
+    name: 'Jimma Coffee Market',
+    region: 'Oromia',
     lng: 36.8344,
     lat: 7.6731,
   },
   {
-    name: "Hawassa Market",
-    region: "Sidama",
+    name: 'Hawassa Market',
+    region: 'Sidama',
     lng: 38.4759,
     lat: 7.0621,
-  },
-];
-
-const CROPS = [
-  {
-    nameEn: "Teff",
-    nameAm: "ጤፍ",
-    nameOm: "Xaafii",
-  },
-  {
-    nameEn: "Maize",
-    nameAm: "በቆሎ",
-    nameOm: "Boqqolloo",
-  },
-  {
-    nameEn: "Wheat",
-    nameAm: "ስንዴ",
-    nameOm: "Qamadii",
-  },
-  {
-    nameEn: "Red Onion",
-    nameAm: "ቀይ ሽንኩርት",
-    nameOm: "Qodaa Diimaa",
-  },
-  {
-    nameEn: "Coffee",
-    nameAm: "ቡና",
-    nameOm: "Bunaa",
-  },
-];
-
-const SAMPLE_PRICES = [
-  {
-    crop: "Teff",
-    priceValue: 8500,
-    unit: "quintal",
-    grade: "Grade 1",
-  },
-  {
-    crop: "Maize",
-    priceValue: 3200,
-    unit: "quintal",
-    grade: "Grade 2",
-  },
-  {
-    crop: "Wheat",
-    priceValue: 4800,
-    unit: "quintal",
-    grade: "Grade 1",
-  },
-  {
-    crop: "Red Onion",
-    priceValue: 2100,
-    unit: "quintal",
-    grade: null,
-  },
-  {
-    crop: "Coffee",
-    priceValue: 95000,
-    unit: "quintal",
-    grade: "Washed Grade 1",
   },
 ];
 
@@ -140,78 +109,71 @@ const SAMPLE_PRICES = [
 // ---------------------------------------------------------------------------
 
 async function main() {
-  console.log("🌱 Starting seed...\n");
+  console.log('🌱 Starting seed…\n');
 
   // -------------------------------------------------------------------------
-  // 1. Seed crops
+  // 1. Seed crops from docs/commodities.json
   // -------------------------------------------------------------------------
 
-  console.log("📦 Seeding crops...");
+  console.log('📦 Seeding crops from docs/commodities.json…');
 
   const cropRecords: Record<string, { id: string }> = {};
 
-  for (const crop of CROPS) {
-    const id = crop.nameEn.toLowerCase().replace(/\s+/g, "_");
-
+  for (const commodity of COMMODITIES) {
     const record = await prisma.crop.upsert({
       where: {
-        id,
+        id: commodity.id,
       },
+
       update: {
-        nameEn: crop.nameEn,
-        nameAm: crop.nameAm,
-        nameOm: crop.nameOm,
+        nameEn: commodity.englishName,
+        nameAm: commodity.amharicName,
+        nameOm: commodity.oromoName,
       },
+
       create: {
-        id,
-        nameEn: crop.nameEn,
-        nameAm: crop.nameAm,
-        nameOm: crop.nameOm,
+        id: commodity.id,
+        nameEn: commodity.englishName,
+        nameAm: commodity.amharicName,
+        nameOm: commodity.oromoName,
       },
     });
 
-    cropRecords[crop.nameEn] = record;
+    cropRecords[commodity.id] = {
+      id: record.id,
+    };
 
     console.log(
-      `  ✅ ${crop.nameEn} (${crop.nameAm} / ${crop.nameOm})`
+      `  ✅ ${commodity.englishName} (${commodity.amharicName} / ${commodity.oromoName})`
     );
   }
 
   // -------------------------------------------------------------------------
-  // 2. Seed markets with PostGIS geo-points
+  // 2. Seed markets with geo-points
   // -------------------------------------------------------------------------
 
-  console.log("\n🗺️ Seeding markets with geo-points...");
+  console.log('\n🗺️  Seeding markets with geo-points…');
 
   const marketRecords: Record<string, { id: string }> = {};
 
   for (const market of MARKETS) {
-    const id = market.name.toLowerCase().replace(/\s+/g, "_");
+    const id = market.name.toLowerCase().replace(/\s+/g, '_');
 
     await prisma.$executeRaw`
-      INSERT INTO markets (
-        id,
-        name,
-        region,
-        location
-      )
+      INSERT INTO markets (id, name, region, location)
       VALUES (
         ${id},
         ${market.name},
         ${market.region},
         ST_SetSRID(
-          ST_MakePoint(
-            ${market.lng},
-            ${market.lat}
-          ),
+          ST_MakePoint(${market.lng}, ${market.lat}),
           4326
         )
       )
       ON CONFLICT (id) DO UPDATE
-      SET
-        name = EXCLUDED.name,
-        region = EXCLUDED.region,
-        location = EXCLUDED.location;
+        SET name = EXCLUDED.name,
+            region = EXCLUDED.region,
+            location = EXCLUDED.location;
     `;
 
     marketRecords[market.name] = { id };
@@ -222,30 +184,53 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
-  // 3. Remove previous seed prices
+  // 3. Seed sample verified prices
   // -------------------------------------------------------------------------
 
-  console.log("\n🧹 Removing previous seed prices...");
+  console.log('\n💰 Seeding sample verified prices at Merkato…');
 
-  await prisma.price.deleteMany({
-    where: {
-      source: "seed_data",
+  const samplePrices = [
+    {
+      commodityId: 'teff',
+      priceValue: 8500,
+      unit: 'quintal',
+      grade: 'Grade 1',
     },
-  });
+    {
+      commodityId: 'maize',
+      priceValue: 3200,
+      unit: 'quintal',
+      grade: 'Grade 2',
+    },
+    {
+      commodityId: 'wheat',
+      priceValue: 4800,
+      unit: 'quintal',
+      grade: 'Grade 1',
+    },
+    {
+      commodityId: 'red-onion',
+      priceValue: 2100,
+      unit: 'quintal',
+      grade: null,
+    },
+    {
+      commodityId: 'coffee',
+      priceValue: 95000,
+      unit: 'quintal',
+      grade: 'Washed Grade 1',
+    },
+  ];
 
-  // -------------------------------------------------------------------------
-  // 4. Seed verified prices at Merkato
-  // -------------------------------------------------------------------------
+  const merkatoId = 'merkato';
 
-  console.log("\n💰 Seeding sample verified prices at Merkato...");
-
-  const merkatoId = marketRecords["Merkato"].id;
-
-  for (const price of SAMPLE_PRICES) {
-    const crop = cropRecords[price.crop];
+  for (const price of samplePrices) {
+    const crop = cropRecords[price.commodityId];
 
     if (!crop) {
-      throw new Error(`Crop not found: ${price.crop}`);
+      throw new Error(
+        `Crop "${price.commodityId}" was not found in commodities.json`
+      );
     }
 
     await prisma.price.create({
@@ -255,21 +240,21 @@ async function main() {
         priceValue: price.priceValue,
         unit: price.unit,
         grade: price.grade,
-        source: "seed_data",
+        source: 'seed_data',
         isVerified: true,
       },
     });
 
     console.log(
-      `  ✅ ${price.crop} — ETB ${price.priceValue.toLocaleString()} / ${price.unit}`
+      `  ✅ ${price.commodityId} — ETB ${price.priceValue.toLocaleString()} / ${price.unit}`
     );
   }
 
   // -------------------------------------------------------------------------
-  // 5. Verify geo-point storage
+  // 4. Verify geo-point storage
   // -------------------------------------------------------------------------
 
-  console.log("\n🧪 Verifying geo-point storage...");
+  console.log('\n🧪 Verifying geo-point storage…');
 
   const geoCheck = await prisma.$queryRaw<
     Array<{
@@ -288,10 +273,10 @@ async function main() {
     ORDER BY name;
   `;
 
-  console.log("\n📍 Market geo-points in database:");
+  console.log('\n  Market geo-points in database:');
   console.table(geoCheck);
 
-  console.log("\n✅ Seed complete. Database is ready for development.\n");
+  console.log('\n✅ Seed complete. Database is ready for development.\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -300,7 +285,7 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error("❌ Seed failed:", error);
+    console.error('❌ Seed failed:', error);
     process.exit(1);
   })
   .finally(async () => {

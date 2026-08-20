@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 // TASK: Daily price board view
 // Shows today's aggregated prices, pulled from /api/price-index
-export default function PriceBoard() {
+export default function PriceBoard({ refreshKey }) {
   const [prices, setPrices] = useState([]);
 
   useEffect(() => {
@@ -10,7 +10,7 @@ export default function PriceBoard() {
       .then((res) => res.json())
       .then(setPrices)
       .catch((err) => console.error("Failed to load price index", err));
-  }, []);
+  }, [refreshKey]);
 
   return (
     <div>
