@@ -1,22 +1,7 @@
 import { useState, useEffect } from 'react';
 import { queueListing, syncQueuedListings, cacheMyListing, generateListingId } from './offlineSync';
+import { COMMODITIES, GRADES } from './constants';
 
-const COMMODITIES = [
-  { id: 'teff', name: 'Teff' },
-  { id: 'wheat', name: 'Wheat' },
-  { id: 'maize', name: 'Maize' },
-  { id: 'coffee', name: 'Coffee (Green)' },
-  { id: 'sorghum', name: 'Sorghum' },
-  { id: 'barley', name: 'Barley' },
-  { id: 'chickpeas', name: 'Chickpeas' },
-  { id: 'onion', name: 'Onion' },
-  { id: 'potato', name: 'Potato' },
-  { id: 'tomato', name: 'Tomato' },
-];
-
-const GRADES = ['Grade A', 'Grade B', 'Grade C'];
-
-// TASK 4: Farmer Listing Form & PWA Offline Sync
 export default function FarmerListingForm() {
 const [form, setForm] = useState({
   commodityId: '',
