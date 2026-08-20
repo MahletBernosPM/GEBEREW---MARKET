@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState } from "react";
 
 export default function SubmissionForm() {
   const [form, setForm] = useState({
-    commodityId: '',
-    price: '',
-    cooperativeName: '',
-    region: '',
+    commodityId: "",
+    price: "",
+    cooperativeName: "",
+    region: "",
   });
   const [status, setStatus] = useState(null);
 
@@ -15,23 +15,25 @@ export default function SubmissionForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setStatus('submitting');
+    setStatus("submitting");
     try {
-      const res = await fetch('/api/submissions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      setStatus(res.ok ? 'success' : 'error');
+      setStatus(res.ok ? "success" : "error");
     } catch {
-      setStatus('error');
+      setStatus("error");
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
-        <label className="block text-sm font-medium text-stone-700 mb-1">Cooperative Name</label>
+        <label className="block text-sm font-medium text-stone-700 mb-1">
+          Cooperative Name
+        </label>
         <input
           name="cooperativeName"
           placeholder="Enter cooperative name"
@@ -41,7 +43,9 @@ export default function SubmissionForm() {
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-stone-700 mb-1">Commodity</label>
+        <label className="block text-sm font-medium text-stone-700 mb-1">
+          Commodity
+        </label>
         <input
           name="commodityId"
           placeholder="e.g. teff"
@@ -51,7 +55,9 @@ export default function SubmissionForm() {
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-stone-700 mb-1">Price</label>
+        <label className="block text-sm font-medium text-stone-700 mb-1">
+          Price
+        </label>
         <input
           name="price"
           placeholder="Enter price"
@@ -61,7 +67,9 @@ export default function SubmissionForm() {
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-stone-700 mb-1">Region</label>
+        <label className="block text-sm font-medium text-stone-700 mb-1">
+          Region
+        </label>
         <input
           name="region"
           placeholder="e.g. Oromia"
@@ -76,11 +84,15 @@ export default function SubmissionForm() {
       >
         Submit Price
       </button>
-      {status === 'success' && (
-        <p className="bg-green-50 text-green-800 rounded-md px-3 py-2 text-sm">Submitted!</p>
+      {status === "success" && (
+        <p className="bg-green-50 text-green-800 rounded-md px-3 py-2 text-sm">
+          Submitted!
+        </p>
       )}
-      {status === 'error' && (
-        <p className="bg-red-50 text-red-700 rounded-md px-3 py-2 text-sm">Something went wrong.</p>
+      {status === "error" && (
+        <p className="bg-red-50 text-red-700 rounded-md px-3 py-2 text-sm">
+          Something went wrong.
+        </p>
       )}
     </form>
   );
