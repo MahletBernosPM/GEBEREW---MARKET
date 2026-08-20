@@ -51,51 +51,51 @@ export default function OperatorQueue({ refreshKey, onDecision }) {
   };
 
   return (
-    <div className="bg-white border border-stone-200 rounded-xl p-6 max-w-md">
-      <h2 className="text-sm font-semibold mb-4">Operator queue</h2>
+    <div className="bg-white border border-stone-300 rounded-2xl p-8 w-full md:max-w-2xl">
+      <h2 className="text-2xl font-bold mb-6 text-stone-900">Operator queue</h2>
 
-      {loading && <p className="text-xs text-stone-500">Loading queue…</p>}
+      {loading && <p className="text-sm text-stone-500">Loading queue…</p>}
       {!loading && prices.length === 0 && (
-        <p className="text-xs text-stone-500">No prices waiting for review.</p>
+        <p className="text-sm text-stone-500">No prices waiting for review.</p>
       )}
       {lastFanout && (
-        <p className="text-xs text-green-700 mb-3">
+        <p className="text-sm text-green-700 mb-4">
           Verified — SMS fanout queued for {lastFanout.count} recipient
           {lastFanout.count === 1 ? "" : "s"}.
         </p>
       )}
 
-      <ul className="flex flex-col gap-3.5">
+      <ul className="flex flex-col gap-5">
         {prices.map((p) => (
           <li
             key={p.id}
-            className="bg-stone-100 rounded-lg p-4 flex flex-col gap-3"
+            className="bg-stone-100 rounded-2xl p-6 flex flex-col gap-4"
           >
             <div className="flex flex-col gap-1">
-              <span className="text-sm font-semibold">
+              <span className="text-base font-bold text-stone-900">
                 {cropLabel(p.crop)} — {p.market?.name}
               </span>
-              <span className="text-xs text-stone-500">
+              <span className="text-sm text-stone-500">
                 {p.priceValue} ETB/{p.unit}
                 {p.grade ? ` · ${p.grade}` : ""} · effective{" "}
                 {String(p.effectiveDate).slice(0, 10)}
               </span>
-              <span className="text-[11px] text-stone-400">
+              <span className="text-sm text-stone-400">
                 source: {p.source}
               </span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 disabled={pendingId === p.id}
                 onClick={() => handleDecision(p.id, "verify")}
-                className="border border-stone-900 rounded-md px-3.5 py-1.5 text-sm font-medium bg-white hover:bg-stone-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="border-2 border-stone-900 rounded-xl px-6 py-2.5 text-base font-medium bg-white hover:bg-stone-50 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Approve
               </button>
               <button
                 disabled={pendingId === p.id}
                 onClick={() => handleDecision(p.id, "reject")}
-                className="border border-red-600 text-red-600 rounded-md px-3.5 py-1.5 text-sm font-medium bg-white hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="border-2 border-stone-900 rounded-xl px-6 py-2.5 text-base font-medium bg-white hover:bg-stone-50 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Reject
               </button>

@@ -14,7 +14,9 @@ export default function PriceBoard({ refreshKey }) {
 
   return (
     <div>
-      <h1>Today's Prices</h1>
+      <h1 className="text-lg sm:text-xl font-bold mb-3 text-stone-900">
+        Today's Prices
+      </h1>
       <table>
         <thead>
           <tr>

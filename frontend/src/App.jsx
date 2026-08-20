@@ -13,10 +13,10 @@ export default function App() {
         Geberew Market — Dev Preview
       </h1>
 
-      <div className="flex gap-6 flex-wrap items-start">
-        <SubmissionForm onSubmitted={bumpRefresh} />
-        <OperatorQueue refreshKey={refreshKey} onDecision={bumpRefresh} />
-      </div>
+      <div className="flex flex-col md:flex-row gap-6 items-stretch md:items-start">
+  <SubmissionForm onSubmitted={bumpRefresh} />
+  <OperatorQueue refreshKey={refreshKey} onDecision={bumpRefresh} />
+</div>
 
       <div className="mt-8 max-w-2xl [&_table]:w-full [&_table]:border-collapse [&_th]:text-left [&_th]:text-[11px] [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-amber-700 [&_th]:pb-2 [&_td]:py-2 [&_td]:border-b [&_td]:border-stone-200 [&_th]:border-b [&_th]:border-stone-200 [&_td]:text-sm">
         <PriceBoard refreshKey={refreshKey} />

@@ -91,20 +91,17 @@ export default function SubmissionForm({ onSubmitted }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-white border border-stone-200 rounded-xl p-6 max-w-sm flex flex-col"
+      className="bg-white border border-stone-300 rounded-2xl p-8 w-full md:max-w-md flex flex-col"
     >
-      <h2 className="text-sm font-semibold mb-4">Submit price</h2>
+      <h2 className="text-2xl font-bold mb-6 text-stone-900">Submit price</h2>
 
       {refError && (
-        <p className="text-xs text-red-600 mb-2">
+        <p className="text-sm text-red-600 mb-4">
           Couldn't load crops/markets. Is the backend running?
         </p>
       )}
 
-      <label
-        htmlFor="cropId"
-        className="text-[11px] uppercase tracking-wide text-amber-700 mt-3 mb-1"
-      >
+      <label htmlFor="cropId" className="text-sm text-stone-500 mb-2">
         Crop
       </label>
       <select
@@ -113,7 +110,7 @@ export default function SubmissionForm({ onSubmitted }) {
         value={form.cropId}
         onChange={handleChange}
         required
-        className="border border-stone-300 rounded-md px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-amber-700 bg-white"
+        className="border border-stone-300 rounded-xl px-4 py-3 text-base w-full focus:outline-none focus:ring-2 focus:ring-stone-400 bg-white mb-5"
       >
         <option value="" disabled>
           Select a crop
@@ -125,10 +122,7 @@ export default function SubmissionForm({ onSubmitted }) {
         ))}
       </select>
 
-      <label
-        htmlFor="marketId"
-        className="text-[11px] uppercase tracking-wide text-amber-700 mt-3 mb-1"
-      >
+      <label htmlFor="marketId" className="text-sm text-stone-500 mb-2">
         Market
       </label>
       <select
@@ -137,7 +131,7 @@ export default function SubmissionForm({ onSubmitted }) {
         value={form.marketId}
         onChange={handleChange}
         required
-        className="border border-stone-300 rounded-md px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-amber-700 bg-white"
+        className="border border-stone-300 rounded-xl px-4 py-3 text-base w-full focus:outline-none focus:ring-2 focus:ring-stone-400 bg-white mb-5"
       >
         <option value="" disabled>
           Select a market
@@ -149,12 +143,9 @@ export default function SubmissionForm({ onSubmitted }) {
         ))}
       </select>
 
-      <div className="flex gap-3">
-        <div className="flex-1 flex flex-col">
-          <label
-            htmlFor="price"
-            className="text-[11px] uppercase tracking-wide text-amber-700 mt-3 mb-1"
-          >
+      <div className="grid grid-cols-2 gap-4 mb-5">
+        <div className="flex flex-col">
+          <label htmlFor="price" className="text-sm text-stone-500 mb-2">
             Price (ETB)
           </label>
           <input
@@ -166,37 +157,45 @@ export default function SubmissionForm({ onSubmitted }) {
             value={form.price}
             onChange={handleChange}
             required
-            className="border border-stone-300 rounded-md px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-amber-700"
+            className="border border-stone-300 rounded-xl px-4 py-3 text-base w-full focus:outline-none focus:ring-2 focus:ring-stone-400"
           />
         </div>
-        <div className="flex-1 flex flex-col">
-          <label
-            htmlFor="unit"
-            className="text-[11px] uppercase tracking-wide text-amber-700 mt-3 mb-1"
-          >
-            Unit
+        <div className="flex flex-col">
+          <label htmlFor="effectiveDate" className="text-sm text-stone-500 mb-2">
+            Effective date
           </label>
-          <select
-            id="unit"
-            name="unit"
-            value={form.unit}
+          <input
+            id="effectiveDate"
+            name="effectiveDate"
+            type="date"
+            min={today}
+            value={form.effectiveDate}
             onChange={handleChange}
             required
-            className="border border-stone-300 rounded-md px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-amber-700 bg-white"
-          >
-            {UNITS.map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
+            className="border border-stone-300 rounded-xl px-4 py-3 text-base w-full focus:outline-none focus:ring-2 focus:ring-stone-400"
+          />
         </div>
       </div>
 
-      <label
-        htmlFor="grade"
-        className="text-[11px] uppercase tracking-wide text-amber-700 mt-3 mb-1"
+      <label htmlFor="unit" className="text-sm text-stone-500 mb-2">
+        Unit (quintal / kg)
+      </label>
+      <select
+        id="unit"
+        name="unit"
+        value={form.unit}
+        onChange={handleChange}
+        required
+        className="border border-stone-300 rounded-xl px-4 py-3 text-base w-full focus:outline-none focus:ring-2 focus:ring-stone-400 bg-white mb-5"
       >
+        {UNITS.map((u) => (
+          <option key={u} value={u}>
+            {u}
+          </option>
+        ))}
+      </select>
+
+      <label htmlFor="grade" className="text-sm text-stone-500 mb-2">
         Grade (optional)
       </label>
       <input
@@ -205,42 +204,25 @@ export default function SubmissionForm({ onSubmitted }) {
         placeholder="e.g. Grade 1"
         value={form.grade}
         onChange={handleChange}
-        className="border border-stone-300 rounded-md px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-amber-700"
-      />
-
-      <label
-        htmlFor="effectiveDate"
-        className="text-[11px] uppercase tracking-wide text-amber-700 mt-3 mb-1"
-      >
-        Effective date
-      </label>
-      <input
-        id="effectiveDate"
-        name="effectiveDate"
-        type="date"
-        min={today}
-        value={form.effectiveDate}
-        onChange={handleChange}
-        required
-        className="border border-stone-300 rounded-md px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-amber-700"
+        className="border border-stone-300 rounded-xl px-4 py-3 text-base w-full focus:outline-none focus:ring-2 focus:ring-stone-400 mb-6"
       />
 
       {status === "success" && (
-        <p className="text-xs text-green-700 mt-3">Submitted for review!</p>
+        <p className="text-sm text-green-700 mb-4">Submitted for review!</p>
       )}
       {status === "invalid-date" && (
-        <p className="text-xs text-red-600 mt-3">
+        <p className="text-sm text-red-600 mb-4">
           Effective date can't be in the past.
         </p>
       )}
       {status === "error" && (
-        <p className="text-xs text-red-600 mt-3">Something went wrong.</p>
+        <p className="text-sm text-red-600 mb-4">Something went wrong.</p>
       )}
 
       <button
         type="submit"
         disabled={status === "submitting"}
-        className="mt-5 self-start border border-stone-900 rounded-lg px-4 py-2 text-sm font-medium bg-white hover:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
+        className="self-start border-2 border-stone-900 rounded-xl px-6 py-3 text-base font-medium bg-white hover:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {status === "submitting" ? "Submitting…" : "Submit for review"}
       </button>
