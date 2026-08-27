@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Frontend: Daily price board view + Cooperative submission form",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build"

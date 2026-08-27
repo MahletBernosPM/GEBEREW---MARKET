@@ -4,10 +4,21 @@
   "description": "Backend: SMS gateway listener, price aggregation, submission security checks",
   "main": "src/index.js",
   "scripts": {
-    "dev": "node src/index.js"
+    "dev": "node src/index.js",
+    "seed": "npx tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
+    "cors": "^2.8.5",
     "express": "^4.19.2",
-    "cors": "^2.8.5"
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "prisma": "^7.9.1",
+    "tsx": "^4.23.12"
   }
 }
