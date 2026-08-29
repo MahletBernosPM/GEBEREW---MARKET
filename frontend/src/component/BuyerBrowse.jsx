@@ -13,9 +13,9 @@ const BuyerBrowse = () => {
   const [maxQuantity, setMaxQuantity] = useState("");
   const [sortBy, setSortBy] = useState("newest");
 
+  // this is mock listing for testing purpose I replaced real listing backend api end point
   const filteredListings = useMemo(() => {
     const searchValue = search.trim().toLowerCase();
-
     const result = mockListings.filter((listing) => {
       const matchesSearch =
         !searchValue ||
@@ -66,6 +66,7 @@ const BuyerBrowse = () => {
     setSortBy("newest");
   };
 
+  // inquery later I replaced query api endpoint
   const handleInquiry = (listing) => {
     console.log("Inquiry requested:", listing.id);
 
