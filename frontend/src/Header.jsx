@@ -1,6 +1,6 @@
 export default function Header({ activeView, setActiveView }) {
   const navItems = [
-    { key: "dashboard", label: "Dashboard" },
+    { key: 'dashboard', label: 'Farmer Listing' },
     { key: "mylistings", label: "My Listings" },
     { key: "coop", label: "Cooperative Submission" },
   ];
