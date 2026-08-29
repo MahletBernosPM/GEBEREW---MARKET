@@ -36,22 +36,22 @@ const ResultGrid = ({ filteredListings, handleInquiry }) => {
 
               <div className="mt-3 grid gap-2 text-sm text-stone-600 sm:grid-cols-2">
                 <p>
-                  <span className="font-medium text-stone-800">Quantity:</span>{" "}
+                  <span className="font-medium text-stone-800">Quantity:</span>
                   {listing.quantity} {listing.unit}
                 </p>
 
                 <p>
-                  <span className="font-medium text-stone-800">Region:</span>{" "}
+                  <span className="font-medium text-stone-800">Region:</span>
                   {listing.region}
                 </p>
 
                 <p>
-                  <span className="font-medium text-stone-800">Pickup:</span>{" "}
+                  <span className="font-medium text-stone-800">Pickup:</span>
                   {listing.pickup}
                 </p>
 
                 <p>
-                  <span className="font-medium text-stone-800">Distance:</span>{" "}
+                  <span className="font-medium text-stone-800">Distance:</span>
                   {listing.distanceKm} km
                 </p>
               </div>
