@@ -57,7 +57,7 @@ const ResultGrid = ({ filteredListings, handleInquiry }) => {
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 lg:flex-row">
               <a
                 href={`tel:${listing.contact}`}
                 className="rounded-lg bg-stone-900 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-stone-700"
