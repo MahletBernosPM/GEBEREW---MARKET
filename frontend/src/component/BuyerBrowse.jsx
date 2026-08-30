@@ -128,7 +128,7 @@ const BuyerBrowse = () => {
         <button
           type="button"
           onClick={clearFilters}
-          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
+          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100 shadow-lg cursor-pointer"
         >
           Clear filters
         </button>
