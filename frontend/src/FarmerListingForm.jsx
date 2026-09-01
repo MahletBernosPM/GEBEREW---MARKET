@@ -1,16 +1,13 @@
 import { useState, useEffect } from "react";
-import {
-  queueListing,
-  syncQueuedListings,
-  cacheMyListing,
-  generateListingId,
-} from "./offlineSync";
-import { COMMODITIES, GRADES } from "./constants";
+import { queueListing, syncQueuedListings, cacheMyListing, generateListingId } from './offlineSync';
+import { GRADES } from './constants';
+import { useCrops, cropLabel } from './useCrops';
 
 export default function FarmerListingForm() {
+  const { crops, loading: cropsLoading } = useCrops();
   const [form, setForm] = useState({
     commodityId: "",
-    quantity: "",
+    quantity: "", 
     unit: "Quintal",
     grade: "",
     pickupLocation: "",
@@ -97,19 +94,18 @@ export default function FarmerListingForm() {
           Crop
         </label>
         <select
-          name="commodityId"
-          value={form.commodityId}
-          onChange={handleChange}
-          required
-          className="w-full border border-stone-300 rounded-md px-3 py-2 text-sm bg-orange-50 focus:outline-none focus:border-orange-600 focus:bg-white"
-        >
-          <option value="" disabled>
-            Select crop
-          </option>
-          {COMMODITIES.map((c) => (
-  <option key={c.id} value={c.id}>{c.label}</option>
-))}
-        </select>
+  name="commodityId"
+  value={form.commodityId}
+  onChange={handleChange}
+  required
+  disabled={cropsLoading}
+  className="w-full border border-stone-300 rounded-md px-3 py-2 text-sm bg-orange-50 focus:outline-none focus:border-orange-600 focus:bg-white"
+>
+  <option value="" disabled>{cropsLoading ? 'Loading crops…' : 'Select crop'}</option>
+  {crops.map((c) => (
+    <option key={c.id} value={c.id}>{cropLabel(c)}</option>
+  ))}
+</select>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

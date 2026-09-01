@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { queueListing, cacheMyListing, generateListingId } from "./offlineSync";
-import { COMMODITIES, GRADES } from "./constants";
+import { queueListing, cacheMyListing, generateListingId } from './offlineSync';
+import { GRADES } from './constants';
+import { useCrops, cropLabel } from './useCrops';
 
 const INITIAL_MEMBERS = [
   { id: "m1", name: "Almaz Bekele", phone: "0911223344" },
@@ -12,7 +13,8 @@ const INITIAL_MEMBERS = [
 // TASK 6: Cooperative Submission — a rep submits one shared listing on
 // behalf of several selected members in a single flow.
 export default function CooperativeSubmissionForm() {
-  const [cooperativeName, setCooperativeName] = useState("");
+  const { crops, loading: cropsLoading } = useCrops();
+  const [cooperativeName, setCooperativeName] = useState('');
   const [repName, setRepName] = useState("");
   const [members, setMembers] = useState(INITIAL_MEMBERS);
   const [selectedMembers, setSelectedMembers] = useState([]);
@@ -219,18 +221,17 @@ export default function CooperativeSubmissionForm() {
                 Crop
               </label>
               <select
-                name="commodityId"
-                value={listing.commodityId}
-                onChange={handleListingChange}
-                className="w-full border border-stone-300 rounded-md px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:border-green-700 focus:bg-white"
-              >
-                <option value="" disabled>
-                  Select crop
-                </option>
-               {COMMODITIES.map((c) => (
-  <option key={c.id} value={c.id}>{c.label}</option>
-))}
-              </select>
+  name="commodityId"
+  value={listing.commodityId}
+  onChange={handleListingChange}
+  disabled={cropsLoading}
+  className="w-full border border-stone-300 rounded-md px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:border-green-700 focus:bg-white"
+>
+  <option value="" disabled>{cropsLoading ? 'Loading crops…' : 'Select crop'}</option>
+  {crops.map((c) => (
+    <option key={c.id} value={c.id}>{cropLabel(c)}</option>
+  ))}
+</select>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>

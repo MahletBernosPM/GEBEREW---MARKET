@@ -8,7 +8,7 @@ const { fanoutVerifiedPrice } = require("./smsFanout");
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -243,13 +243,7 @@ const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
 
 
-/**
- * TASK 4/6: Farmer & Cooperative listings
- * The client generates the listing id (needed for offline-safe idempotent
- * sync — see FarmerListingForm/offlineSync.js). We find-or-create the
- * farmer's User row by phone (contact) since there's no real auth yet, and
- * upsert by id so a retried offline sync never creates a duplicate.
- */
+
 app.post("/api/listings", async (req, res) => {
   const { id, commodityId, quantity, grade, pickupLocation, contact } = req.body;
 
@@ -303,9 +297,9 @@ app.put("/api/listings/:id", async (req, res) => {
       tx.listing.update({
         where: { id: req.params.id },
         data: {
-          ...(quantity !== undefined && { quantity: Number(quantity) }),
-          ...(grade !== undefined && { grade }),
-          ...(pickupLocation !== undefined && { pickup: pickupLocation }),
+          quantity: quantity !== undefined ? Number(quantity) : existing.quantity,
+          grade: grade !== undefined ? grade : existing.grade,
+          pickup: pickupLocation !== undefined ? pickupLocation : existing.pickup,
         },
       }),
     );
