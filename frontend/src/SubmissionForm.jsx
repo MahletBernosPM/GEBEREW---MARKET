@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 
 // TASK: Cooperative submission form
 // Lets a cooperative submit a price observation for a commodity

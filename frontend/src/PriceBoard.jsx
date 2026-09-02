@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 // TASK: Daily price board view
 // Shows today's aggregated prices, pulled from /api/price-index
