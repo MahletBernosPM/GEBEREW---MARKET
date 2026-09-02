@@ -20,6 +20,7 @@ export default function CooperativeSubmissionForm() {
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [showAddMember, setShowAddMember] = useState(false);
   const [newMember, setNewMember] = useState({ name: "", phone: "" });
+  const [addMemberError, setAddMemberError] = useState('');
   const [listing, setListing] = useState({
     commodityId: "",
     quantity: "",
@@ -36,11 +37,23 @@ export default function CooperativeSubmissionForm() {
   };
 
   const handleAddMember = () => {
-    if (!newMember.name.trim() || !newMember.phone.trim()) return;
+    const name = newMember.name.trim();
+    const phone = newMember.phone.trim();
+
+    if (!name || !phone) {
+      setAddMemberError('Enter both a name and phone number.');
+      return;
+    }
+    if (!/^0\d{9}$/.test(phone)) {
+      setAddMemberError('Phone must be 10 digits starting with 0, e.g. 0911223344.');
+      return;
+    }
+
     const id = `custom-${Date.now()}`;
-    setMembers((prev) => [...prev, { id, ...newMember }]);
+    setMembers((prev) => [...prev, { id, name, phone }]);
     setSelectedMembers((prev) => [...prev, id]);
-    setNewMember({ name: "", phone: "" });
+    setNewMember({ name: '', phone: '' });
+    setAddMemberError('');
     setShowAddMember(false);
   };
 
@@ -178,11 +191,11 @@ export default function CooperativeSubmissionForm() {
                 className="flex-1 border border-stone-300 rounded-md px-3 py-2 text-sm bg-stone-50"
               />
               <input
+                type="tel"
                 value={newMember.phone}
-                onChange={(e) =>
-                  setNewMember({ ...newMember, phone: e.target.value })
-                }
-                placeholder="Phone number"
+                onChange={(e) => setNewMember({ ...newMember, phone: e.target.value.replace(/\D/g, '') })}
+                placeholder="0911223344"
+                maxLength={10}
                 className="flex-1 border border-stone-300 rounded-md px-3 py-2 text-sm bg-stone-50"
               />
               <button
@@ -199,6 +212,9 @@ export default function CooperativeSubmissionForm() {
               >
                 Cancel
               </button>
+              {addMemberError && (
+                <p className="text-red-600 text-xs w-full">{addMemberError}</p>
+              )}
             </div>
           ) : (
             <button
@@ -221,17 +237,17 @@ export default function CooperativeSubmissionForm() {
                 Crop
               </label>
               <select
-  name="commodityId"
-  value={listing.commodityId}
-  onChange={handleListingChange}
-  disabled={cropsLoading}
-  className="w-full border border-stone-300 rounded-md px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:border-green-700 focus:bg-white"
->
-  <option value="" disabled>{cropsLoading ? 'Loading crops…' : 'Select crop'}</option>
-  {crops.map((c) => (
-    <option key={c.id} value={c.id}>{cropLabel(c)}</option>
-  ))}
-</select>
+                name="commodityId"
+                value={listing.commodityId}
+                onChange={handleListingChange}
+                disabled={cropsLoading}
+                className="w-full border border-stone-300 rounded-md px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:border-green-700 focus:bg-white"
+              >
+                <option value="" disabled>{cropsLoading ? 'Loading crops…' : 'Select crop'}</option>
+                {crops.map((c) => (
+                  <option key={c.id} value={c.id}>{cropLabel(c)}</option>
+                ))}
+              </select>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
