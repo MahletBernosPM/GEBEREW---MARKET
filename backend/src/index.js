@@ -7,6 +7,8 @@ const { fanoutVerifiedPrice } = require("./smsFanout");
 
 const app = express();
 
+const rateLimit = require("express-rate-limit");
+
 app.use(cors());
 app.use(express.json());
 
@@ -17,6 +19,13 @@ class HttpError extends Error {
   }
 }
 
+const priceSubmitionLimiter = rateLimit({
+  windowMs: 15 * 60 * 100,
+  max: 5,
+  message:{
+    error: "error to many price submition, please try again"
+  },
+});
 /**
  * TASK 3: Reference data for the submission form
  * crops/markets have RLS OFF (same list for every role — see SCHEMA.md
@@ -47,7 +56,7 @@ app.get("/api/markets", async (req, res) => {
  * Creates a Price row with isVerified: false — it enters the operator
  * approval queue immediately.
  */
-app.post("/api/prices", async (req, res) => {
+app.post("/api/prices", priceSubmitionLimiter, async (req, res) => {
   const { cropId, marketId, price, unit, effectiveDate, grade, source } =
     req.body;
 
@@ -110,7 +119,7 @@ app.post("/api/prices", async (req, res) => {
  * TASK 3: Operator queue
  * Lists prices waiting for verification.
  */
-app.get("/api/prices", async (req, res) => {
+app.get("/api/prices",  async (req, res) => {
   const verifiedParam = req.query.verified;
 
   try {
