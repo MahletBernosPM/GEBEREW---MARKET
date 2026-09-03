@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import PriceBoard from "./PriceBoard";
 import SubmissionForm from "./SubmissionForm";
 import OperatorQueue from "./OperatorQueue";
+import PriceTrendChart from "./PriceTrendChart";
 
 export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -20,6 +21,10 @@ export default function App() {
 
       <div className="mt-8 max-w-2xl [&_table]:w-full [&_table]:border-collapse [&_th]:text-left [&_th]:text-[11px] [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-amber-700 [&_th]:pb-2 [&_td]:py-2 [&_td]:border-b [&_td]:border-stone-200 [&_th]:border-b [&_th]:border-stone-200 [&_td]:text-sm">
         <PriceBoard refreshKey={refreshKey} />
+      </div>
+
+      <div className="mt-8 max-w-2xl">
+        <PriceTrendChart />
       </div>
     </div>
   );
