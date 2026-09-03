@@ -1,5 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
+const { PrismaClient } = require("@prisma/client");
+const { PrismaPg } = require("@prisma/adapter-pg");
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -25,4 +25,21 @@ async function withOperatorContext(callback) {
   });
 }
 
-module.exports = { prisma, withOperatorContext };
+/**
+ * TODO(auth): Same stand-in as withOperatorContext above — until real auth
+ * exists, SMS-originated actions (creating a user on first contact, logging
+ * sms_messages) need a role that RLS actually grants INSERT to. Right now
+ * only ADMIN has a write policy on `users` and `sms_messages` (see
+ * SCHEMA.md section 8 — admin_all_users / admin_all_sms are the only ALL
+ * policies on those tables). Flagged to the team; replace once a real
+ * SERVICE/SYSTEM role or per-request auth exists.
+ */
+async function withSystemContext(callback) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(`SET LOCAL app."current_role" = 'ADMIN'`);
+    await tx.$executeRawUnsafe(`SET LOCAL app.current_region = ''`);
+    return callback(tx);
+  });
+}
+
+module.exports = { prisma, withOperatorContext, withSystemContext };

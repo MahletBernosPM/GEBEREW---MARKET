@@ -2,8 +2,10 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
-const { prisma, withOperatorContext } = require("./db");
+const { prisma, withOperatorContext, withSystemContext } = require("./db");
 const { fanoutVerifiedPrice } = require("./smsFanout");
+const { parseSmsCommand } = require("../../sms-gateway/src/parser");
+const { checkRateLimit } = require("../../sms-gateway/src/rateLimiter");
 
 const app = express();
 
@@ -52,12 +54,10 @@ app.post("/api/prices", async (req, res) => {
     req.body;
 
   if (!cropId || !marketId || !price || !unit || !effectiveDate) {
-    return res
-      .status(400)
-      .json({
-        error:
-          "Missing required fields: cropId, marketId, price, unit, effectiveDate",
-      });
+    return res.status(400).json({
+      error:
+        "Missing required fields: cropId, marketId, price, unit, effectiveDate",
+    });
   }
 
   const numericPrice = Number(price);
@@ -180,16 +180,11 @@ app.patch("/api/prices/:id/reject", async (req, res) => {
 });
 
 /**
- * TASK 9 (also Habtamu's, separate task): Public price index
- * Only verified prices whose effective date has arrived are public —
- * this is the "effective-date publishing" behavior from Task 3's spec.
- */
-/**
- * TASK 9 (also Habtamu's, separate task): Public price index
+ * TASK 9 (Habtamu's): Public price index
  * Only verified prices whose effective date is TODAY are shown — this is
- * what "Today's Prices" on the board actually means. Previously this used
- * effectiveDate <= now, which meant old seeded/past-dated prices stayed in
- * the average forever and drowned out anything new.
+ * what "Today's Prices" on the board actually means. Grouped by crop AND
+ * market per the task spec (previously crop-only, which collapsed prices
+ * from different markets into one misleading average).
  */
 app.get("/api/price-index", async (req, res) => {
   try {
@@ -210,16 +205,25 @@ app.get("/api/price-index", async (req, res) => {
 
     const grouped = {};
     for (const p of prices) {
-      const key = p.cropId;
-      if (!grouped[key])
-        grouped[key] = { cropName: p.crop.nameEn ?? p.crop.nameAm, prices: [] };
+      const key = `${p.cropId}::${p.marketId}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          cropId: p.cropId,
+          cropName: p.crop.nameEn ?? p.crop.nameAm,
+          marketId: p.marketId,
+          marketName: p.market.name,
+          prices: [],
+        };
+      }
       grouped[key].prices.push(Number(p.priceValue));
     }
 
-    const index = Object.entries(grouped).map(
-      ([cropId, { cropName, prices }]) => ({
+    const index = Object.values(grouped).map(
+      ({ cropId, cropName, marketId, marketName, prices }) => ({
         commodityId: cropId,
         commodityName: cropName,
+        marketId,
+        marketName,
         averagePrice: prices.reduce((a, b) => a + b, 0) / prices.length,
         submissionCount: prices.length,
       }),
@@ -233,10 +237,111 @@ app.get("/api/price-index", async (req, res) => {
 });
 
 /**
- * TASK 5 (Surafel Muhabaw's): SMS gateway listener — untouched, not this task.
+ * TASK 5: SMS gateway inbound listener
+ * Handles PRICE/SELL commands via SMS. Uses withSystemContext (see db.js)
+ * because creating a first-time user row and logging sms_messages both
+ * require ADMIN under current RLS — flagged to the team as a gap, not a
+ * long-term design choice.
  */
-app.post("/api/sms/inbound", (req, res) => {
-  res.status(200).json({ received: true });
+app.post("/api/sms/inbound", async (req, res) => {
+  const { sender, text } = req.body;
+
+  if (!sender || !text) {
+    return res.status(400).json({ error: "Missing sender or text" });
+  }
+
+  const rateCheck = checkRateLimit(sender);
+  if (!rateCheck.allowed) {
+    return res.status(429).json({
+      error: "Rate limit exceeded",
+      retryAfterSec: rateCheck.retryAfterSec,
+    });
+  }
+
+  const parsed = parseSmsCommand(text);
+
+  try {
+    const replyText = await withSystemContext(async (tx) => {
+      // Find or create the user for this phone number
+      const user = await tx.user.upsert({
+        where: { phone: sender },
+        update: {},
+        create: { phone: sender, role: "FARMER" },
+      });
+
+      // Log the inbound message regardless of outcome
+      await tx.smsMessage.create({
+        data: {
+          sender,
+          intent: parsed.intent,
+          response: text,
+          direction: "INBOUND",
+          userId: user.id,
+        },
+      });
+
+      let reply;
+
+      if (!parsed.valid) {
+        reply = parsed.error + (parsed.helpText ? ` ${parsed.helpText}` : "");
+      } else if (parsed.intent === "QUERY_PRICE") {
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const startOfTomorrow = new Date(startOfToday);
+        startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
+        const prices = await tx.price.findMany({
+          where: {
+            cropId: parsed.cropId,
+            isVerified: true,
+            effectiveDate: { gte: startOfToday, lt: startOfTomorrow },
+          },
+          include: { crop: true, market: true },
+        });
+
+        if (prices.length === 0) {
+          reply = `No verified price today for ${parsed.cropId}.`;
+        } else {
+          const lines = prices.map(
+            (p) => `${p.market.name}: ${p.priceValue} ETB/${p.unit}`,
+          );
+          reply = `${parsed.cropId.toUpperCase()} — ${lines.join(", ")}`;
+        }
+      } else if (parsed.intent === "SUBMIT_LISTING") {
+        await tx.listing.create({
+          data: {
+            farmerId: user.id,
+            cropId: parsed.cropId,
+            quantity: parsed.quantity,
+            pickup: parsed.pickupLocation,
+            contact: sender,
+          },
+        });
+        reply = `Listing created: ${parsed.cropId}, qty ${parsed.quantity}, at ${parsed.pickupLocation}.`;
+      } else {
+        reply = "Unrecognized command.";
+      }
+
+      // Log the outbound reply
+      await tx.smsMessage.create({
+        data: {
+          sender,
+          intent: parsed.intent,
+          response: reply,
+          direction: "OUTBOUND",
+          status: "queued",
+          userId: user.id,
+        },
+      });
+
+      return reply;
+    });
+
+    res.status(200).json({ received: true, reply: replyText });
+  } catch (err) {
+    console.error("Failed to process inbound SMS", err);
+    res.status(500).json({ error: "Failed to process SMS" });
+  }
 });
 
 const PORT = process.env.PORT || 4000;
