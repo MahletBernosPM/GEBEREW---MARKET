@@ -1,7 +1,7 @@
 const { withOperatorContext } = require("./db");
 
 /**
- * TASK 13 (Habtamu's): 7/30-day price trends + market comparison
+ * TASK 13: 7/30-day price trends + market comparison
  *
  * GET /api/price-index/history?cropId=<id>&days=7|30           -> one series per market (market comparison view)
  * GET /api/price-index/history?cropId=<id>&marketId=<id>&days= -> single series (per-crop-per-market trend line)
