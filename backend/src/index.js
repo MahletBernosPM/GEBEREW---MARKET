@@ -344,5 +344,8 @@ app.post("/api/sms/inbound", async (req, res) => {
   }
 });
 
+require("./priceTrends")(app);
+
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
