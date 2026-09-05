@@ -1,0 +1,1 @@
+export const GRADES = ['Grade A', 'Grade B', 'Grade C'];
