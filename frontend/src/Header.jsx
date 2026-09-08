@@ -1,22 +1,28 @@
-export default function Header({ activeView, setActiveView }) {
+const Header=({ activeView, setActiveView }) =>{
   const navItems = [
-    { key: 'dashboard', label: 'Farmer Listing' },
+    { key: "dashboard", label: "Farmer Listing" },
     { key: "mylistings", label: "My Listings" },
     { key: "coop", label: "Cooperative Submission" },
+    { key: "buyer", label: "Buyer Browse" },
   ];
 
   return (
     <header className="bg-green-900 text-white px-6 py-4 flex items-center justify-between">
       <div>
-        <h1 className="text-xl font-bold leading-tight">🌿 Geberew Market</h1>
+        <h1 className="text-xl font-bold leading-tight">
+          🌿 Geberew Market
+        </h1>
+
         <p className="text-xs text-green-200">
           Transparent prices, stronger farmers.
         </p>
       </div>
+
       <nav className="hidden md:flex gap-6 text-sm font-medium">
         {navItems.map((item) => (
           <button
             key={item.key}
+            type="button"
             onClick={() => setActiveView(item.key)}
             className={
               activeView === item.key
@@ -31,3 +37,5 @@ export default function Header({ activeView, setActiveView }) {
     </header>
   );
 }
+
+export default Header

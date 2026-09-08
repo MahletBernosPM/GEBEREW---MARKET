@@ -2,7 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
-const { prisma, withOperatorContext, withFarmerContext } = require("./db");
+const { prisma, withOperatorContext, withFarmerContext, withBuyerContext } = require("./db");
 const { fanoutVerifiedPrice } = require("./smsFanout");
 
 const app = express();
@@ -248,11 +248,6 @@ app.post("/api/sms/inbound", (req, res) => {
   res.status(200).json({ received: true });
 });
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
-
-
-
 app.post("/api/listings", async (req, res) => {
   const { id, commodityId, quantity, grade, pickupLocation, contact } = req.body;
 
@@ -338,94 +333,29 @@ app.delete("/api/listings/:id", async (req, res) => {
   }
 });
 
-/**
- * TASK 4/6: Farmer & Cooperative listings
- * The client generates the listing id (needed for offline-safe idempotent
- * sync — see FarmerListingForm/offlineSync.js). We find-or-create the
- * farmer's User row by phone (contact) since there's no real auth yet, and
- * upsert by id so a retried offline sync never creates a duplicate.
- */
-app.post("/api/listings", async (req, res) => {
-  const { id, commodityId, quantity, grade, pickupLocation, contact } = req.body;
-
-  if (!id || !commodityId || !quantity || !pickupLocation || !contact) {
-    return res.status(400).json({
-      error: "Missing required fields: id, commodityId, quantity, pickupLocation, contact",
-    });
-  }
-
+app.get("/api/listings", async (req, res) => {
   try {
-    const listing = await withFarmerContext(contact, async (tx, farmer) => {
-      const crop = await tx.crop.findUnique({ where: { id: commodityId } });
-      if (!crop) throw new Error(`Unknown commodityId: ${commodityId}`);
-
-      return tx.listing.upsert({
-        where: { id },
-        create: {
-          id,
-          farmerId: farmer.id,
-          cropId: commodityId,
-          quantity: Number(quantity),
-          grade: grade || null,
-          pickup: pickupLocation,
-          contact,
+    const listings = await withBuyerContext((tx) =>
+      tx.listing.findMany({
+        where: {
+          status: "ACTIVE",
         },
-        update: {
-          quantity: Number(quantity),
-          grade: grade || null,
-          pickup: pickupLocation,
+        include: {
+          crop: true,
+          market: true,
         },
-      });
-    });
-
-    res.status(201).json({ ok: true, id: listing.id });
-  } catch (err) {
-    console.error("Failed to create listing", err);
-    res.status(500).json({ error: "Failed to create listing" });
-  }
-});
-
-app.put("/api/listings/:id", async (req, res) => {
-  const { quantity, grade, pickupLocation } = req.body;
-
-  try {
-    const existing = await withOperatorContext((tx) =>
-      tx.listing.findUnique({ where: { id: req.params.id } }),
-    );
-    if (!existing) return res.status(404).json({ error: "Listing not found" });
-
-    const updated = await withFarmerContext(existing.contact, (tx) =>
-      tx.listing.update({
-        where: { id: req.params.id },
-        data: {
-          ...(quantity !== undefined && { quantity: Number(quantity) }),
-          ...(grade !== undefined && { grade }),
-          ...(pickupLocation !== undefined && { pickup: pickupLocation }),
+        orderBy: {
+          createdAt: "desc",
         },
       }),
     );
 
-    res.json({ ok: true, listing: updated });
+    res.json(listings);
   } catch (err) {
-    console.error("Failed to update listing", err);
-    res.status(500).json({ error: "Failed to update listing" });
+    console.error("Failed to list active listings", err);
+    res.status(500).json({ error: "Failed to load listings" });
   }
 });
 
-app.delete("/api/listings/:id", async (req, res) => {
-  try {
-    const existing = await withOperatorContext((tx) =>
-      tx.listing.findUnique({ where: { id: req.params.id } }),
-    );
-    if (!existing) return res.status(404).json({ error: "Listing not found" });
-
-    await withFarmerContext(existing.contact, (tx) =>
-      tx.listing.delete({ where: { id: req.params.id } }),
-    );
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("Failed to delete listing", err);
-    res.status(500).json({ error: "Failed to delete listing" });
-  }
-});
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));

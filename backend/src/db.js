@@ -59,4 +59,17 @@ async function withFarmerContext(phone, callback) {
   });
 }
 
-module.exports = { prisma, withOperatorContext, withFarmerContext };
+async function withBuyerContext(callback) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(
+      `SET LOCAL app."current_role" = 'BUYER'`
+    );
+    await tx.$executeRawUnsafe(
+      `SET LOCAL app.current_region = ''`
+    );
+
+    return callback(tx);
+  });
+}
+
+module.exports = { prisma, withOperatorContext, withFarmerContext, withBuyerContext };

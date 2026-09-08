@@ -1,6 +1,7 @@
-import React from "react";
-
-const ResultGrid = ({ filteredListings, handleInquiry }) => {
+const ResultGrid = ({
+  filteredListings,
+  handleInquiry,
+}) => {
   if (filteredListings.length === 0) {
     return (
       <div className="mt-5 rounded-xl border border-dashed border-stone-300 bg-stone-50 px-6 py-10 text-center">
@@ -36,23 +37,33 @@ const ResultGrid = ({ filteredListings, handleInquiry }) => {
 
               <div className="mt-3 grid gap-2 text-sm text-stone-600 sm:grid-cols-2">
                 <p>
-                  <span className="font-medium text-stone-800">Quantity:</span>
+                  <span className="font-medium text-stone-800">
+                    Quantity:
+                  </span>{" "}
                   {listing.quantity} {listing.unit}
                 </p>
 
                 <p>
-                  <span className="font-medium text-stone-800">Region:</span>
+                  <span className="font-medium text-stone-800">
+                    Region:
+                  </span>{" "}
                   {listing.region}
                 </p>
 
                 <p>
-                  <span className="font-medium text-stone-800">Pickup:</span>
+                  <span className="font-medium text-stone-800">
+                    Pickup:
+                  </span>{" "}
                   {listing.pickup}
                 </p>
 
                 <p>
-                  <span className="font-medium text-stone-800">Distance:</span>
-                  {listing.distanceKm} km
+                  <span className="font-medium text-stone-800">
+                    Distance:
+                  </span>{" "}
+                  {listing.distanceKm != null
+                    ? `${listing.distanceKm} km`
+                    : "Not available"}
                 </p>
               </div>
             </div>

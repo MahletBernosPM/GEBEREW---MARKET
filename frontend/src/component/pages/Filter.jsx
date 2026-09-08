@@ -1,6 +1,5 @@
-import { mockListings } from "./mockListing";
-
 const Filter = ({
+  listings,
   crop,
   setCrop,
   region,
@@ -14,15 +13,23 @@ const Filter = ({
   sortBy,
   setSortBy,
 }) => {
-  const crops = ["All", ...new Set(mockListings.map((item) => item.crop))];
+  const crops = [
+    "All",
+    ...new Set(listings.map((item) => item.crop)),
+  ];
 
-  const regions = ["All", ...new Set(mockListings.map((item) => item.region))];
+  const regions = [
+    "All",
+    ...new Set(listings.map((item) => item.region)),
+  ];
 
-  const grades = ["All", ...new Set(mockListings.map((item) => item.grade))];
+  const grades = [
+    "All",
+    ...new Set(listings.map((item) => item.grade)),
+  ];
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {/* Crop */}
       <div>
         <label className="mb-2 block text-sm font-medium text-stone-700">
           Crop
@@ -41,7 +48,6 @@ const Filter = ({
         </select>
       </div>
 
-      {/* Region */}
       <div>
         <label className="mb-2 block text-sm font-medium text-stone-700">
           Region
@@ -60,7 +66,6 @@ const Filter = ({
         </select>
       </div>
 
-      {/* Grade */}
       <div>
         <label className="mb-2 block text-sm font-medium text-stone-700">
           Grade
@@ -79,7 +84,6 @@ const Filter = ({
         </select>
       </div>
 
-      {/* Minimum quantity */}
       <div>
         <label className="mb-2 block text-sm font-medium text-stone-700">
           Minimum quantity
@@ -89,13 +93,14 @@ const Filter = ({
           type="number"
           min="0"
           value={minQuantity}
-          onChange={(event) => setMinQuantity(event.target.value)}
+          onChange={(event) =>
+            setMinQuantity(event.target.value)
+          }
           placeholder="e.g. 10"
           className="w-full rounded-lg border border-stone-300 px-3 py-3 text-sm outline-none focus:border-amber-500"
         />
       </div>
 
-      {/* Maximum quantity */}
       <div>
         <label className="mb-2 block text-sm font-medium text-stone-700">
           Maximum quantity
@@ -105,13 +110,14 @@ const Filter = ({
           type="number"
           min="0"
           value={maxQuantity}
-          onChange={(event) => setMaxQuantity(event.target.value)}
+          onChange={(event) =>
+            setMaxQuantity(event.target.value)
+          }
           placeholder="e.g. 50"
           className="w-full rounded-lg border border-stone-300 px-3 py-3 text-sm outline-none focus:border-amber-500"
         />
       </div>
 
-      {/* Sort */}
       <div>
         <label className="mb-2 block text-sm font-medium text-stone-700">
           Sort by
