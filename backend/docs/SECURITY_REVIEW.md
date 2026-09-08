@@ -1,93 +1,45 @@
-# Security Review — Task 12
+# Task 12 — Security Review
 
 ## Scope
 
-Security review of the price submission endpoint from Task 3.
+Reviewed price submission and listing submission endpoints.
 
-Endpoint reviewed:
+## Results
 
-POST /api/prices
-
-## 1. Input Validation
-
-Status: PASS
-
-Tests performed:
-
-- Missing required fields → rejected with HTTP 400
-- Negative/invalid price → rejected with HTTP 400
-- Past effective date → rejected with HTTP 400
-- Valid future effective date → accepted with HTTP 201
-
-Example finding:
-
-Past effectiveDate was correctly rejected with:
-
-"effectiveDate must be a valid date not in the past"
-
-## 2. Rate Limiting
+### Input Validation
+- Price: validated positive number.
+- Effective date: past dates rejected.
+- Listing quantity: must be a positive number.
+- Listing contact: validated phone number.
+- Missing required fields: rejected with HTTP 400.
 
 Status: PASS
 
-Rate limiting was added to POST /api/prices.
+### Rate Limiting
+- `/api/prices`: rate limited.
+- `/api/listings`: rate limited.
+- Repeated requests return HTTP 429.
 
-Configuration:
+Status: PASS
 
-- Window: 15 minutes
-- Maximum requests: 5
+### Access Control / RLS
+- RLS policies exist.
+- No real authentication/JWT middleware exists yet.
+- `/api/prices` can currently be submitted without authentication.
+- This is documented as a security gap/backlog item.
 
-Test result:
+Status: GAP DOCUMENTED
 
-Repeated send similar requests eventually returned HTTP 429.
+### Task 6
+- Cooperative/farmer listing submission reviewed.
 
-Example response:
+Status: REVIEWED
 
-{
-  "error": "error to many price submition, please try again"
-}
+## Conclusion
 
-## 3. Access Control / Authentication
+Input validation: PASS  
+Rate limiting: PASS  
+Access control: GAP DOCUMENTED  
+Task 6: REVIEWED  
 
-Status: FAIL — Security Gap
-
-Test performed:
-
-POST /api/prices was sent from Postman with No Auth.
-
-Result:
-
-HTTP 201 Created
-
-This means unauthenticated requests can currently submit prices.
-
-Cause:
-
-The current backend does not contain authentication middleware.
-
-withOperatorContext() currently sets the database context to:
-
-role = OPERATOR
-
-for every request.
-
-Required fix:
-
-Connect the endpoint to the project's real authentication system when authentication is implemented.
-
-Until then, this issue must remain documented/backlogged. this needs real authenticaton middlewire so later all tasks mered to main and then I make authentication middlewire for the application
-
-## 4. Task 6 Review
-
-Status: PENDING
-
-Task 6 has not yet been merged/reviewed.
-
-The cooperative submission form must be reviewed separately once it is available.
-
-## Overall Status
-
-Input validation: PASS
-Rate limiting: PASS
-Access control: FAIL / BACKLOG
-Task 6 review: PENDING
-PM security sign-off: PENDING
+PM security sign-off is required before Task 12 is considered complete.

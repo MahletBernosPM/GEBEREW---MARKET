@@ -26,6 +26,14 @@ const priceSubmitionLimiter = rateLimit({
     error: "error to many price submition, please try again"
   },
 });
+
+const listingSubmissionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: {
+    error: "Too many listing submissions. Please try again later.",
+  },
+});
 /**
  * TASK 3: Reference data for the submission form
  * crops/markets have RLS OFF (same list for every role — see SCHEMA.md
@@ -248,88 +256,193 @@ app.post("/api/sms/inbound", (req, res) => {
   res.status(200).json({ received: true });
 });
 
-app.post("/api/listings", async (req, res) => {
-  const { id, commodityId, quantity, grade, pickupLocation, contact } = req.body;
+app.post(
+  "/api/listings",
+  listingSubmissionLimiter,
+  async (req, res) => {
+    const {
+      id,
+      commodityId,
+      quantity,
+      grade,
+      pickupLocation,
+      contact,
+    } = req.body;
 
-  if (!id || !commodityId || !quantity || !pickupLocation || !contact) {
-    return res.status(400).json({
-      error: "Missing required fields: id, commodityId, quantity, pickupLocation, contact",
-    });
-  }
-
-  try {
-    const listing = await withFarmerContext(contact, async (tx, farmer) => {
-      const crop = await tx.crop.findUnique({ where: { id: commodityId } });
-      if (!crop) throw new Error(`Unknown commodityId: ${commodityId}`);
-
-      return tx.listing.upsert({
-        where: { id },
-        create: {
-          id,
-          farmerId: farmer.id,
-          cropId: commodityId,
-          quantity: Number(quantity),
-          grade: grade || null,
-          pickup: pickupLocation,
-          contact,
-        },
-        update: {
-          quantity: Number(quantity),
-          grade: grade || null,
-          pickup: pickupLocation,
-        },
+    // Required fields
+    if (!id || !commodityId || !quantity || !pickupLocation || !contact) {
+      return res.status(400).json({
+        error:
+          "Missing required fields: id, commodityId, quantity, pickupLocation, contact",
       });
-    });
+    }
 
-    res.status(201).json({ ok: true, id: listing.id });
-  } catch (err) {
-    console.error("Failed to create listing", err);
-    res.status(500).json({ error: "Failed to create listing" });
-  }
-});
+    // Quantity validation
+    const numericQuantity = Number(quantity);
+
+    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
+      return res.status(400).json({
+        error: "quantity must be a positive number",
+      });
+    }
+
+    // Contact validation
+    const normalizedContact = String(contact).trim();
+
+    if (!/^\+?\d{10,15}$/.test(normalizedContact)) {
+      return res.status(400).json({
+        error: "contact must be a valid phone number",
+      });
+    }
+
+    try {
+      const listing = await withFarmerContext(
+        normalizedContact,
+        async (tx, farmer) => {
+          const crop = await tx.crop.findUnique({
+            where: { id: commodityId },
+          });
+
+          if (!crop) {
+            throw new Error(`Unknown commodityId: ${commodityId}`);
+          }
+
+          return tx.listing.upsert({
+            where: { id },
+
+            create: {
+              id,
+              farmerId: farmer.id,
+              cropId: commodityId,
+              quantity: numericQuantity,
+              grade: grade || null,
+              pickup: pickupLocation,
+              contact: normalizedContact,
+            },
+
+            update: {
+              quantity: numericQuantity,
+              grade: grade || null,
+              pickup: pickupLocation,
+            },
+          });
+        },
+      );
+
+      res.status(201).json({
+        ok: true,
+        id: listing.id,
+      });
+    } catch (err) {
+      console.error("Failed to create listing", err);
+      res.status(500).json({
+        error: "Failed to create listing",
+      });
+    }
+  },
+);
 
 app.put("/api/listings/:id", async (req, res) => {
   const { quantity, grade, pickupLocation } = req.body;
 
-  try {
-    const existing = await withOperatorContext((tx) =>
-      tx.listing.findUnique({ where: { id: req.params.id } }),
-    );
-    if (!existing) return res.status(404).json({ error: "Listing not found" });
+  // Validate quantity only when it is provided
+  let numericQuantity;
 
-    const updated = await withFarmerContext(existing.contact, (tx) =>
-      tx.listing.update({
+  if (quantity !== undefined) {
+    numericQuantity = Number(quantity);
+
+    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
+      return res.status(400).json({
+        error: "quantity must be a positive number",
+      });
+    }
+  }
+
+  try {
+    // Find the listing
+    const existing = await withOperatorContext((tx) =>
+      tx.listing.findUnique({
         where: { id: req.params.id },
-        data: {
-          quantity: quantity !== undefined ? Number(quantity) : existing.quantity,
-          grade: grade !== undefined ? grade : existing.grade,
-          pickup: pickupLocation !== undefined ? pickupLocation : existing.pickup,
-        },
       }),
     );
 
-    res.json({ ok: true, listing: updated });
+    if (!existing) {
+      return res.status(404).json({
+        error: "Listing not found",
+      });
+    }
+
+    // Update using the farmer context
+    const updated = await withFarmerContext(
+      existing.contact,
+      (tx) =>
+        tx.listing.update({
+          where: { id: req.params.id },
+          data: {
+            quantity:
+              quantity !== undefined
+                ? numericQuantity
+                : existing.quantity,
+
+            grade:
+              grade !== undefined
+                ? grade
+                : existing.grade,
+
+            pickup:
+              pickupLocation !== undefined
+                ? pickupLocation
+                : existing.pickup,
+          },
+        }),
+    );
+
+    res.json({
+      ok: true,
+      listing: updated,
+    });
   } catch (err) {
     console.error("Failed to update listing", err);
-    res.status(500).json({ error: "Failed to update listing" });
+
+    res.status(500).json({
+      error: "Failed to update listing",
+    });
   }
 });
 
 app.delete("/api/listings/:id", async (req, res) => {
   try {
+    // Find the listing first
     const existing = await withOperatorContext((tx) =>
-      tx.listing.findUnique({ where: { id: req.params.id } }),
-    );
-    if (!existing) return res.status(404).json({ error: "Listing not found" });
-
-    await withFarmerContext(existing.contact, (tx) =>
-      tx.listing.delete({ where: { id: req.params.id } }),
+      tx.listing.findUnique({
+        where: { id: req.params.id },
+      }),
     );
 
-    res.json({ ok: true });
+    if (!existing) {
+      return res.status(404).json({
+        error: "Listing not found",
+      });
+    }
+
+    // Delete using the farmer context
+    await withFarmerContext(
+      existing.contact,
+      (tx) =>
+        tx.listing.delete({
+          where: { id: req.params.id },
+        }),
+    );
+
+    res.json({
+      ok: true,
+    });
   } catch (err) {
     console.error("Failed to delete listing", err);
-    res.status(500).json({ error: "Failed to delete listing" });
+
+    res.status(500).json({
+      error: "Failed to delete listing",
+    });
   }
 });
 
