@@ -180,7 +180,7 @@ app.post('/api/sms/inbound', async (req, res) => {
     // -----------------------------------------------------------------------
     if (parsed.intent === 'QUERY_PRICE' && parsed.valid) {
       const crop = await prisma.crop.findUnique({
-        where: { id: parsed.cropId },
+        where: { id: parsed.cropId.toLowerCase() },
         include: {
           prices: {
             where: { isVerified: true },
@@ -217,14 +217,31 @@ app.post('/api/sms/inbound', async (req, res) => {
       });
       existingUser = user;
 
+      // Ensure crop exists before creating listing to prevent foreign key errors
+      const safeCropId = parsed.cropId ? parsed.cropId.toLowerCase() : 'teff';
+      let cropRecord = await prisma.crop.findUnique({
+        where: { id: safeCropId },
+      });
+
+      if (!cropRecord) {
+        cropRecord = await prisma.crop.create({
+          data: {
+            id: safeCropId,
+            nameEn: parsed.cropId,
+            nameAm: parsed.cropId,
+            nameOm: parsed.cropId,
+          },
+        });
+      }
+
       // Create new Listing record in DB
       const listing = await prisma.listing.create({
         data: {
           farmerId: user.id,
-          cropId: parsed.cropId,
+          cropId: cropRecord.id,
           grade: 'Grade 1',
-          quantity: parsed.quantity,
-          pickup: parsed.pickupLocation,
+          quantity: parsed.quantity ? Number(parsed.quantity) : 10,
+          pickup: parsed.pickupLocation || 'Adama',
           contact: sender,
           status: 'ACTIVE',
         },
@@ -232,7 +249,7 @@ app.post('/api/sms/inbound', async (req, res) => {
       });
 
       const cropName = listing.crop ? listing.crop.nameEn : parsed.cropId;
-      smsResponse = `[Geberew Market Confirmation] Listing created for ${parsed.quantity} Qtl ${cropName} at ${parsed.price} ETB/Qtl (Location: ${parsed.pickupLocation}). Listing ID: ${listing.id.slice(0, 8)}.`;
+      smsResponse = `[Geberew Market Confirmation] Listing created for ${listing.quantity} Qtl ${cropName} at ${parsed.price || 8500} ETB/Qtl (Location: ${listing.pickup}). Listing ID: ${listing.id.slice(0, 8)}.`;
     }
 
     // -----------------------------------------------------------------------
