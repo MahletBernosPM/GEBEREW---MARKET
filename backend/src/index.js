@@ -2,8 +2,16 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
-const { prisma, withOperatorContext, withFarmerContext, withBuyerContext } = require("./db");
+const {
+  prisma,
+  withOperatorContext,
+  withSystemContext,
+  withFarmerContext,
+  withBuyerContext,
+} = require("./db");
 const { fanoutVerifiedPrice } = require("./smsFanout");
+const { parseSmsCommand } = require("../../sms-gateway/src/parser");
+const { checkRateLimit } = require("../../sms-gateway/src/rateLimiter");
 
 const app = express();
 
@@ -20,10 +28,10 @@ class HttpError extends Error {
 }
 
 const priceSubmitionLimiter = rateLimit({
-  windowMs: 15 * 60 * 100,
+  windowMs: 15 * 60 * 1000,
   max: 5,
-  message:{
-    error: "error to many price submition, please try again"
+  message: {
+    error: "Too many price submissions, please try again later.",
   },
 });
 
@@ -34,10 +42,9 @@ const listingSubmissionLimiter = rateLimit({
     error: "Too many listing submissions. Please try again later.",
   },
 });
+
 /**
  * TASK 3: Reference data for the submission form
- * crops/markets have RLS OFF (same list for every role — see SCHEMA.md
- * section 8), so these are plain reads, no operator context needed.
  */
 app.get("/api/crops", async (req, res) => {
   try {
@@ -61,20 +68,16 @@ app.get("/api/markets", async (req, res) => {
 
 /**
  * TASK 3: Price submission
- * Creates a Price row with isVerified: false — it enters the operator
- * approval queue immediately.
  */
 app.post("/api/prices", priceSubmitionLimiter, async (req, res) => {
   const { cropId, marketId, price, unit, effectiveDate, grade, source } =
     req.body;
 
   if (!cropId || !marketId || !price || !unit || !effectiveDate) {
-    return res
-      .status(400)
-      .json({
-        error:
-          "Missing required fields: cropId, marketId, price, unit, effectiveDate",
-      });
+    return res.status(400).json({
+      error:
+        "Missing required fields: cropId, marketId, price, unit, effectiveDate",
+    });
   }
 
   const numericPrice = Number(price);
@@ -125,9 +128,8 @@ app.post("/api/prices", priceSubmitionLimiter, async (req, res) => {
 
 /**
  * TASK 3: Operator queue
- * Lists prices waiting for verification.
  */
-app.get("/api/prices",  async (req, res) => {
+app.get("/api/prices", async (req, res) => {
   const verifiedParam = req.query.verified;
 
   try {
@@ -150,8 +152,6 @@ app.get("/api/prices",  async (req, res) => {
 
 /**
  * TASK 3: Verify a price
- * Sets isVerified: true and triggers the SMS fanout in the same transaction
- * so a delivery record is only created for a price that's actually verified.
  */
 app.patch("/api/prices/:id/verify", async (req, res) => {
   try {
@@ -177,10 +177,6 @@ app.patch("/api/prices/:id/verify", async (req, res) => {
 
 /**
  * TASK 3: Reject a price
- * Schema has no status/rejection field on Price — only isVerified — so a
- * rejected submission is deleted rather than flagged. If an audit trail of
- * rejections matters, that needs a schema change (worth raising with the
- * Task 1 owner).
  */
 app.patch("/api/prices/:id/reject", async (req, res) => {
   try {
@@ -197,16 +193,7 @@ app.patch("/api/prices/:id/reject", async (req, res) => {
 });
 
 /**
- * TASK 9 (also Habtamu's, separate task): Public price index
- * Only verified prices whose effective date has arrived are public —
- * this is the "effective-date publishing" behavior from Task 3's spec.
- */
-/**
- * TASK 9 (also Habtamu's, separate task): Public price index
- * Only verified prices whose effective date is TODAY are shown — this is
- * what "Today's Prices" on the board actually means. Previously this used
- * effectiveDate <= now, which meant old seeded/past-dated prices stayed in
- * the average forever and drowned out anything new.
+ * TASK 9: Public price index
  */
 app.get("/api/price-index", async (req, res) => {
   try {
@@ -227,16 +214,25 @@ app.get("/api/price-index", async (req, res) => {
 
     const grouped = {};
     for (const p of prices) {
-      const key = p.cropId;
-      if (!grouped[key])
-        grouped[key] = { cropName: p.crop.nameEn ?? p.crop.nameAm, prices: [] };
+      const key = `${p.cropId}::${p.marketId}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          cropId: p.cropId,
+          cropName: p.crop.nameEn ?? p.crop.nameAm,
+          marketId: p.marketId,
+          marketName: p.market.name,
+          prices: [],
+        };
+      }
       grouped[key].prices.push(Number(p.priceValue));
     }
 
-    const index = Object.entries(grouped).map(
-      ([cropId, { cropName, prices }]) => ({
+    const index = Object.values(grouped).map(
+      ({ cropId, cropName, marketId, marketName, prices }) => ({
         commodityId: cropId,
         commodityName: cropName,
+        marketId,
+        marketName,
         averagePrice: prices.reduce((a, b) => a + b, 0) / prices.length,
         submissionCount: prices.length,
       }),
@@ -250,202 +246,182 @@ app.get("/api/price-index", async (req, res) => {
 });
 
 /**
- * TASK 5 (Surafel Muhabaw's): SMS gateway listener — untouched, not this task.
+ * TASK 5: SMS gateway inbound listener
  */
-app.post("/api/sms/inbound", (req, res) => {
-  res.status(200).json({ received: true });
-});
+app.post("/api/sms/inbound", async (req, res) => {
+  const { sender, text } = req.body;
 
-app.post(
-  "/api/listings",
-  listingSubmissionLimiter,
-  async (req, res) => {
-    const {
-      id,
-      commodityId,
-      quantity,
-      grade,
-      pickupLocation,
-      contact,
-    } = req.body;
+  if (!sender || !text) {
+    return res.status(400).json({ error: "Missing sender or text" });
+  }
 
-    // Required fields
-    if (!id || !commodityId || !quantity || !pickupLocation || !contact) {
-      return res.status(400).json({
-        error:
-          "Missing required fields: id, commodityId, quantity, pickupLocation, contact",
+  const rateCheck = checkRateLimit(sender);
+  if (!rateCheck.allowed) {
+    return res.status(429).json({
+      error: "Rate limit exceeded",
+      retryAfterSec: rateCheck.retryAfterSec,
+    });
+  }
+
+  const parsed = parseSmsCommand(text);
+
+  try {
+    const replyText = await withSystemContext(async (tx) => {
+      const user = await tx.user.upsert({
+        where: { phone: sender },
+        update: {},
+        create: { phone: sender, role: "FARMER" },
       });
-    }
 
-    // Quantity validation
-    const numericQuantity = Number(quantity);
-
-    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
-      return res.status(400).json({
-        error: "quantity must be a positive number",
-      });
-    }
-
-    // Contact validation
-    const normalizedContact = String(contact).trim();
-
-    if (!/^\+?\d{10,15}$/.test(normalizedContact)) {
-      return res.status(400).json({
-        error: "contact must be a valid phone number",
-      });
-    }
-
-    try {
-      const listing = await withFarmerContext(
-        normalizedContact,
-        async (tx, farmer) => {
-          const crop = await tx.crop.findUnique({
-            where: { id: commodityId },
-          });
-
-          if (!crop) {
-            throw new Error(`Unknown commodityId: ${commodityId}`);
-          }
-
-          return tx.listing.upsert({
-            where: { id },
-
-            create: {
-              id,
-              farmerId: farmer.id,
-              cropId: commodityId,
-              quantity: numericQuantity,
-              grade: grade || null,
-              pickup: pickupLocation,
-              contact: normalizedContact,
-            },
-
-            update: {
-              quantity: numericQuantity,
-              grade: grade || null,
-              pickup: pickupLocation,
-            },
-          });
+      await tx.smsMessage.create({
+        data: {
+          sender,
+          intent: parsed.intent,
+          response: text,
+          direction: "INBOUND",
+          userId: user.id,
         },
-      );
-
-      res.status(201).json({
-        ok: true,
-        id: listing.id,
       });
-    } catch (err) {
-      console.error("Failed to create listing", err);
-      res.status(500).json({
-        error: "Failed to create listing",
-      });
-    }
-  },
-);
 
-app.put("/api/listings/:id", async (req, res) => {
-  const { quantity, grade, pickupLocation } = req.body;
+      let reply;
 
-  // Validate quantity only when it is provided
-  let numericQuantity;
+      if (!parsed.valid) {
+        reply = parsed.error + (parsed.helpText ? ` ${parsed.helpText}` : "");
+      } else if (parsed.intent === "QUERY_PRICE") {
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const startOfTomorrow = new Date(startOfToday);
+        startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
 
-  if (quantity !== undefined) {
-    numericQuantity = Number(quantity);
-
-    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
-      return res.status(400).json({
-        error: "quantity must be a positive number",
-      });
-    }
-  }
-
-  try {
-    // Find the listing
-    const existing = await withOperatorContext((tx) =>
-      tx.listing.findUnique({
-        where: { id: req.params.id },
-      }),
-    );
-
-    if (!existing) {
-      return res.status(404).json({
-        error: "Listing not found",
-      });
-    }
-
-    // Update using the farmer context
-    const updated = await withFarmerContext(
-      existing.contact,
-      (tx) =>
-        tx.listing.update({
-          where: { id: req.params.id },
-          data: {
-            quantity:
-              quantity !== undefined
-                ? numericQuantity
-                : existing.quantity,
-
-            grade:
-              grade !== undefined
-                ? grade
-                : existing.grade,
-
-            pickup:
-              pickupLocation !== undefined
-                ? pickupLocation
-                : existing.pickup,
+        const prices = await tx.price.findMany({
+          where: {
+            cropId: parsed.cropId,
+            isVerified: true,
+            effectiveDate: { gte: startOfToday, lt: startOfTomorrow },
           },
-        }),
-    );
+          include: { crop: true, market: true },
+        });
 
-    res.json({
-      ok: true,
-      listing: updated,
-    });
-  } catch (err) {
-    console.error("Failed to update listing", err);
+        if (prices.length === 0) {
+          reply = `No verified price today for ${parsed.cropId}.`;
+        } else {
+          const lines = prices.map(
+            (p) => `${p.market.name}: ${p.priceValue} ETB/${p.unit}`,
+          );
+          reply = `${parsed.cropId.toUpperCase()} — ${lines.join(", ")}`;
+        }
+      } else if (parsed.intent === "SUBMIT_LISTING") {
+        await tx.listing.create({
+          data: {
+            farmerId: user.id,
+            cropId: parsed.cropId,
+            quantity: parsed.quantity,
+            pickup: parsed.pickupLocation,
+            contact: sender,
+          },
+        });
+        reply = `Listing created: ${parsed.cropId}, qty ${parsed.quantity}, at ${parsed.pickupLocation}.`;
+      } else {
+        reply = "Unrecognized command.";
+      }
 
-    res.status(500).json({
-      error: "Failed to update listing",
-    });
-  }
-});
-
-app.delete("/api/listings/:id", async (req, res) => {
-  try {
-    // Find the listing first
-    const existing = await withOperatorContext((tx) =>
-      tx.listing.findUnique({
-        where: { id: req.params.id },
-      }),
-    );
-
-    if (!existing) {
-      return res.status(404).json({
-        error: "Listing not found",
+      await tx.smsMessage.create({
+        data: {
+          sender,
+          intent: parsed.intent,
+          response: reply,
+          direction: "OUTBOUND",
+          status: "queued",
+          userId: user.id,
+        },
       });
-    }
 
-    // Delete using the farmer context
-    await withFarmerContext(
-      existing.contact,
-      (tx) =>
-        tx.listing.delete({
-          where: { id: req.params.id },
-        }),
+      return reply;
+    });
+
+    res.status(200).json({ received: true, reply: replyText });
+  } catch (err) {
+    console.error("Failed to process inbound SMS", err);
+    res.status(500).json({ error: "Failed to process SMS" });
+  }
+});
+
+/**
+ * TASK 4/6 & 12: Farmer & Cooperative listing creation with input validation & rate limiting
+ */
+app.post("/api/listings", listingSubmissionLimiter, async (req, res) => {
+  const { id, commodityId, quantity, grade, pickupLocation, contact } = req.body;
+
+  if (!id || !commodityId || !quantity || !pickupLocation || !contact) {
+    return res.status(400).json({
+      error:
+        "Missing required fields: id, commodityId, quantity, pickupLocation, contact",
+    });
+  }
+
+  const numericQuantity = Number(quantity);
+  if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
+    return res.status(400).json({
+      error: "quantity must be a positive number",
+    });
+  }
+
+  const normalizedContact = String(contact).trim();
+  if (!/^\+?\d{10,15}$/.test(normalizedContact)) {
+    return res.status(400).json({
+      error: "contact must be a valid phone number",
+    });
+  }
+
+  try {
+    const listing = await withFarmerContext(
+      normalizedContact,
+      async (tx, farmer) => {
+        const crop = await tx.crop.findUnique({
+          where: { id: commodityId },
+        });
+
+        if (!crop) {
+          throw new HttpError(400, `Unknown commodityId: ${commodityId}`);
+        }
+
+        return tx.listing.upsert({
+          where: { id },
+          create: {
+            id,
+            farmerId: farmer.id,
+            cropId: commodityId,
+            quantity: numericQuantity,
+            grade: grade || null,
+            pickup: pickupLocation,
+            contact: normalizedContact,
+          },
+          update: {
+            quantity: numericQuantity,
+            grade: grade || null,
+            pickup: pickupLocation,
+          },
+        });
+      },
     );
 
-    res.json({
+    res.status(201).json({
       ok: true,
+      id: listing.id,
     });
   } catch (err) {
-    console.error("Failed to delete listing", err);
-
+    if (err instanceof HttpError)
+      return res.status(err.status).json({ error: err.message });
+    console.error("Failed to create listing", err);
     res.status(500).json({
-      error: "Failed to delete listing",
+      error: "Failed to create listing",
     });
   }
 });
 
+/**
+ * TASK 7: Buyer browse listings endpoint
+ */
 app.get("/api/listings", async (req, res) => {
   try {
     const listings = await withBuyerContext((tx) =>
@@ -467,6 +443,88 @@ app.get("/api/listings", async (req, res) => {
   } catch (err) {
     console.error("Failed to list active listings", err);
     res.status(500).json({ error: "Failed to load listings" });
+  }
+});
+
+/**
+ * Update listing endpoint
+ */
+app.patch("/api/listings/:id", async (req, res) => {
+  const { quantity, grade, pickupLocation } = req.body;
+
+  let numericQuantity;
+  if (quantity !== undefined) {
+    numericQuantity = Number(quantity);
+    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
+      return res.status(400).json({
+        error: "quantity must be a positive number",
+      });
+    }
+  }
+
+  try {
+    const existing = await withOperatorContext((tx) =>
+      tx.listing.findUnique({
+        where: { id: req.params.id },
+      }),
+    );
+
+    if (!existing) {
+      return res.status(404).json({
+        error: "Listing not found",
+      });
+    }
+
+    const updated = await withFarmerContext(
+      existing.contact,
+      (tx) =>
+        tx.listing.update({
+          where: { id: req.params.id },
+          data: {
+            quantity: quantity !== undefined ? numericQuantity : existing.quantity,
+            grade: grade !== undefined ? grade : existing.grade,
+            pickup: pickupLocation !== undefined ? pickupLocation : existing.pickup,
+          },
+        }),
+    );
+
+    res.json({
+      ok: true,
+      listing: updated,
+    });
+  } catch (err) {
+    console.error("Failed to update listing", err);
+    res.status(500).json({
+      error: "Failed to update listing",
+    });
+  }
+});
+
+/**
+ * Delete listing endpoint
+ */
+app.delete("/api/listings/:id", async (req, res) => {
+  try {
+    const existing = await withOperatorContext((tx) =>
+      tx.listing.findUnique({ where: { id: req.params.id } }),
+    );
+
+    if (!existing) {
+      return res.status(404).json({ error: "Listing not found" });
+    }
+
+    await withFarmerContext(
+      existing.contact,
+      (tx) =>
+        tx.listing.delete({
+          where: { id: req.params.id },
+        }),
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Failed to delete listing", err);
+    res.status(500).json({ error: "Failed to delete listing" });
   }
 });
 
