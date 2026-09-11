@@ -16,12 +16,7 @@ const requestTimestamps = new Map();
  * Returns { allowed: boolean, remaining: number, retryAfterSec: number }
  */
 function checkRateLimit(sender) {
-  if (!sender)
-    return {
-      allowed: true,
-      remaining: MAX_REQUESTS_PER_WINDOW,
-      retryAfterSec: 0,
-    };
+  if (!sender) return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW, retryAfterSec: 0 };
 
   const now = Date.now();
   const windowStart = now - WINDOW_MS;
