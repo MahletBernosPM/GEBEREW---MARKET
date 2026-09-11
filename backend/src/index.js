@@ -1,24 +1,8 @@
-<<<<<<< HEAD
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
-const { parseSmsCommand } = require('../../sms-gateway/src/parser');
-const { checkRateLimit } = require('../../sms-gateway/src/rateLimiter');
-
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-  throw new Error('DATABASE_URL is not defined in backend environment');
-}
-
-const adapter = new PrismaPg({ connectionString: databaseUrl });
-const prisma = new PrismaClient({ adapter });
-=======
-require("dotenv").config();
+﻿require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const rateLimit = require("express-rate-limit");
 const {
   prisma,
   withOperatorContext,
@@ -29,267 +13,15 @@ const {
 const { fanoutVerifiedPrice } = require("./smsFanout");
 const { parseSmsCommand } = require("../../sms-gateway/src/parser");
 const { checkRateLimit } = require("../../sms-gateway/src/rateLimiter");
->>>>>>> origin/main
+
+// Startup validation — fail fast if DATABASE_URL is missing
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is not defined in backend environment");
+}
 
 const app = express();
 
-const rateLimit = require("express-rate-limit");
-
-<<<<<<< HEAD
-// ---------------------------------------------------------------------------
-// 1. Cooperative Price Submission Form (Web API)
-// ---------------------------------------------------------------------------
-app.post('/api/submissions', async (req, res) => {
-  try {
-    const { commodityId, price, cooperativeName, region } = req.body;
-
-    if (!commodityId || !price || !cooperativeName || !region) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    const priceVal = Number(price);
-    if (isNaN(priceVal) || priceVal <= 0) {
-      return res.status(400).json({ error: 'Price must be a positive number' });
-    }
-
-    // Verify crop exists in DB
-    const crop = await prisma.crop.findUnique({
-      where: { id: commodityId.toLowerCase() },
-    });
-
-    if (!crop) {
-      return res.status(404).json({ error: `Crop '${commodityId}' not found in index.` });
-    }
-
-    // Default to Merkato or region market
-    let market = await prisma.market.findFirst({
-      where: { name: { contains: region, mode: 'insensitive' } },
-    });
-
-    if (!market) {
-      market = await prisma.market.findFirst({ where: { name: 'Merkato' } });
-    }
-
-    // Save price submission to database
-    const savedPrice = await prisma.price.create({
-      data: {
-        cropId: crop.id,
-        marketId: market.id,
-        priceValue: priceVal,
-        unit: 'quintal',
-        source: `cooperative:${cooperativeName}`,
-        isVerified: true,
-      },
-    });
-
-    res.status(201).json({ ok: true, id: savedPrice.id });
-  } catch (error) {
-    console.error('Submission error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// ---------------------------------------------------------------------------
-// 2. Aggregate Public Price Index (Web API)
-// ---------------------------------------------------------------------------
-app.get('/api/price-index', async (req, res) => {
-  try {
-    const prices = await prisma.price.findMany({
-      include: {
-        crop: true,
-        market: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    // Group by cropId to calculate average price and submission counts
-    const grouped = {};
-    for (const p of prices) {
-      if (!grouped[p.cropId]) {
-        grouped[p.cropId] = {
-          commodityId: p.crop.nameEn || p.cropId,
-          cropId: p.cropId,
-          amharicName: p.crop.nameAm,
-          oromoName: p.crop.nameOm,
-          prices: [],
-        };
-      }
-      grouped[p.cropId].prices.push(Number(p.priceValue));
-    }
-
-    const priceIndex = Object.values(grouped).map((item) => ({
-      commodityId: item.commodityId,
-      cropId: item.cropId,
-      amharicName: item.amharicName,
-      oromoName: item.oromoName,
-      averagePrice: item.prices.reduce((a, b) => a + b, 0) / item.prices.length,
-      submissionCount: item.prices.length,
-    }));
-
-    res.json(priceIndex);
-  } catch (error) {
-    console.error('Price index error:', error);
-    res.status(500).json({ error: 'Failed to fetch price index' });
-  }
-});
-
-// ---------------------------------------------------------------------------
-// 3. SMS Gateway Listener & Short Code Webhook (Task 5)
-//    Supports Ethio Telecom & Safaricom Ethiopia Short Codes
-// ---------------------------------------------------------------------------
-app.post('/api/sms/inbound', async (req, res) => {
-  const { messageId, provider, from, text } = req.body;
-
-  const sender = from || 'ANONYMOUS';
-  const rawText = text || '';
-  const telecomProvider = provider || 'ethio_telecom';
-
-  // Step A: Check Outbound Rate Limiting per sender phone number
-  const rateLimit = checkRateLimit(sender);
-  if (!rateLimit.allowed) {
-    const rateLimitResponse = `Rate limit exceeded. Please wait ${rateLimit.retryAfterSec} seconds before sending another SMS request.`;
-
-    // Log rate limited attempt in DB
-    await prisma.smsMessage.create({
-      data: {
-        sender,
-        intent: 'RATE_LIMITED',
-        response: rateLimitResponse,
-        direction: 'OUTBOUND',
-        status: 'BLOCKED',
-      },
-    }).catch(console.error);
-
-    return res.status(429).json({
-      success: false,
-      error: 'Rate limit exceeded',
-      retryAfterSec: rateLimit.retryAfterSec,
-      smsResponse: rateLimitResponse,
-    });
-  }
-
-  // Step B: Parse inbound command
-  const parsed = parseSmsCommand(rawText);
-
-  // Look up existing user by sender phone number if available
-  let existingUser = await prisma.user.findUnique({ where: { phone: sender } }).catch(() => null);
-
-  // Log Inbound SMS to Database
-  const inboundLog = await prisma.smsMessage.create({
-    data: {
-      userId: existingUser ? existingUser.id : undefined,
-      sender,
-      intent: parsed.intent,
-      response: rawText,
-      direction: 'INBOUND',
-      status: parsed.valid ? 'PROCESSED' : 'INVALID',
-    },
-  }).catch((err) => {
-    console.error('Failed to log inbound SMS:', err);
-    return null;
-  });
-
-  let smsResponse = '';
-
-  try {
-    // -----------------------------------------------------------------------
-    // PATH 1: PRICE QUERY (e.g. "PRICE TEFF", "ዋጋ ጤፍ", "GATI XAAFII")
-    // -----------------------------------------------------------------------
-    if (parsed.intent === 'QUERY_PRICE' && parsed.valid) {
-      const crop = await prisma.crop.findUnique({
-        where: { id: parsed.cropId },
-        include: {
-          prices: {
-            where: { isVerified: true },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-            include: { market: true },
-          },
-        },
-      });
-
-      if (!crop || crop.prices.length === 0) {
-        smsResponse = `Geberew Market: No verified prices available for ${parsed.cropId} yet.`;
-      } else {
-        const latestPrice = crop.prices[0];
-        const priceVal = Number(latestPrice.priceValue).toLocaleString();
-        const marketName = latestPrice.market ? latestPrice.market.name : 'Merkato';
-
-        smsResponse = `[Geberew Market] ${crop.nameEn} (${crop.nameAm} / ${crop.nameOm}): ${priceVal} ETB/${latestPrice.unit} at ${marketName}.`;
-      }
-    }
-
-    // -----------------------------------------------------------------------
-    // PATH 2: LISTING SUBMISSION (e.g. "SELL TEFF 8500 10 ADAMA")
-    // -----------------------------------------------------------------------
-    else if (parsed.intent === 'SUBMIT_LISTING' && parsed.valid) {
-      // Find or create User record for sender phone number
-      const user = await prisma.user.upsert({
-        where: { phone: sender },
-        update: {},
-        create: {
-          phone: sender,
-          role: 'FARMER',
-        },
-      });
-      existingUser = user;
-
-      // Create new Listing record in DB
-      const listing = await prisma.listing.create({
-        data: {
-          farmerId: user.id,
-          cropId: parsed.cropId,
-          grade: 'Grade 1',
-          quantity: parsed.quantity,
-          pickup: parsed.pickupLocation,
-          contact: sender,
-          status: 'ACTIVE',
-        },
-        include: { crop: true },
-      });
-
-      const cropName = listing.crop ? listing.crop.nameEn : parsed.cropId;
-      smsResponse = `[Geberew Market Confirmation] Listing created for ${parsed.quantity} Qtl ${cropName} at ${parsed.price} ETB/Qtl (Location: ${parsed.pickupLocation}). Listing ID: ${listing.id.slice(0, 8)}.`;
-    }
-
-    // -----------------------------------------------------------------------
-    // PATH 3: UNKNOWN / INVALID COMMAND
-    // -----------------------------------------------------------------------
-    else {
-      smsResponse = `[Geberew Market SMS Help] ${parsed.error || 'Invalid command.'} ${parsed.helpText || 'Send PRICE TEFF or SELL TEFF 8500 10 ADAMA.'}`;
-    }
-
-    // Log Outbound SMS Response to Database
-    await prisma.smsMessage.create({
-      data: {
-        userId: existingUser ? existingUser.id : undefined,
-        sender,
-        intent: parsed.intent,
-        response: smsResponse,
-        direction: 'OUTBOUND',
-        status: 'SENT',
-      },
-    }).catch(console.error);
-
-    res.status(200).json({
-      success: true,
-      messageId: messageId || `msg_${Date.now()}`,
-      provider: telecomProvider,
-      intent: parsed.intent,
-      smsResponse,
-    });
-  } catch (error) {
-    console.error('SMS processing error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to process SMS request',
-    });
-  }
-});
-
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`Backend API running on port ${PORT}`));
-=======
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
@@ -316,9 +48,10 @@ const listingSubmissionLimiter = rateLimit({
   },
 });
 
-/**
- * TASK 3: Reference data for the submission form
- */
+// ---------------------------------------------------------------------------
+// Reference data
+// ---------------------------------------------------------------------------
+
 app.get("/api/crops", async (req, res) => {
   try {
     const crops = await prisma.crop.findMany({ orderBy: { nameEn: "asc" } });
@@ -339,8 +72,68 @@ app.get("/api/markets", async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Price submission routes
+// ---------------------------------------------------------------------------
+
 /**
- * TASK 3: Price submission
+ * Cooperative Price Submission (Web API)
+ * Accepts { commodityId, price, cooperativeName, region }.
+ * Auto-resolves market by region name (falls back to Merkato).
+ * Sets isVerified: true — cooperative sources are trusted.
+ */
+app.post("/api/submissions", async (req, res) => {
+  try {
+    const { commodityId, price, cooperativeName, region } = req.body;
+
+    if (!commodityId || !price || !cooperativeName || !region) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const priceVal = Number(price);
+    if (isNaN(priceVal) || priceVal <= 0) {
+      return res.status(400).json({ error: "Price must be a positive number" });
+    }
+
+    const crop = await prisma.crop.findUnique({
+      where: { id: commodityId.toLowerCase() },
+    });
+
+    if (!crop) {
+      return res
+        .status(404)
+        .json({ error: `Crop '${commodityId}' not found in index.` });
+    }
+
+    // Auto-resolve market by region name, fall back to Merkato
+    let market = await prisma.market.findFirst({
+      where: { name: { contains: region, mode: "insensitive" } },
+    });
+    if (!market) {
+      market = await prisma.market.findFirst({ where: { name: "Merkato" } });
+    }
+
+    const savedPrice = await prisma.price.create({
+      data: {
+        cropId: crop.id,
+        marketId: market.id,
+        priceValue: priceVal,
+        unit: "quintal",
+        source: `cooperative:${cooperativeName}`,
+        isVerified: true,
+      },
+    });
+
+    res.status(201).json({ ok: true, id: savedPrice.id });
+  } catch (error) {
+    console.error("Submission error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * TASK 3: Field reporter price submission
+ * Requires explicit marketId, goes through operator queue (isVerified: false).
  */
 app.post("/api/prices", priceSubmitionLimiter, async (req, res) => {
   const { cropId, marketId, price, unit, effectiveDate, grade, source } =
@@ -400,7 +193,7 @@ app.post("/api/prices", priceSubmitionLimiter, async (req, res) => {
 });
 
 /**
- * TASK 3: Operator queue
+ * TASK 3: Operator queue — list prices (optionally filter by verified status)
  */
 app.get("/api/prices", async (req, res) => {
   const verifiedParam = req.query.verified;
@@ -424,7 +217,7 @@ app.get("/api/prices", async (req, res) => {
 });
 
 /**
- * TASK 3: Verify a price
+ * TASK 3: Verify a price (triggers fanout to SMS subscribers)
  */
 app.patch("/api/prices/:id/verify", async (req, res) => {
   try {
@@ -449,7 +242,7 @@ app.patch("/api/prices/:id/verify", async (req, res) => {
 });
 
 /**
- * TASK 3: Reject a price
+ * TASK 3: Reject a price (hard delete)
  */
 app.patch("/api/prices/:id/reject", async (req, res) => {
   try {
@@ -467,6 +260,8 @@ app.patch("/api/prices/:id/reject", async (req, res) => {
 
 /**
  * TASK 9: Public price index
+ * Returns today's verified prices grouped by crop + market.
+ * Includes amharicName and oromoName for multilingual display.
  */
 app.get("/api/price-index", async (req, res) => {
   try {
@@ -492,6 +287,8 @@ app.get("/api/price-index", async (req, res) => {
         grouped[key] = {
           cropId: p.cropId,
           cropName: p.crop.nameEn ?? p.crop.nameAm,
+          amharicName: p.crop.nameAm,
+          oromoName: p.crop.nameOm,
           marketId: p.marketId,
           marketName: p.market.name,
           prices: [],
@@ -501,9 +298,11 @@ app.get("/api/price-index", async (req, res) => {
     }
 
     const index = Object.values(grouped).map(
-      ({ cropId, cropName, marketId, marketName, prices }) => ({
+      ({ cropId, cropName, amharicName, oromoName, marketId, marketName, prices }) => ({
         commodityId: cropId,
         commodityName: cropName,
+        amharicName,
+        oromoName,
         marketId,
         marketName,
         averagePrice: prices.reduce((a, b) => a + b, 0) / prices.length,
@@ -518,40 +317,69 @@ app.get("/api/price-index", async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// SMS gateway
+// ---------------------------------------------------------------------------
+
 /**
  * TASK 5: SMS gateway inbound listener
+ * Accepts { messageId, provider, from, text } from telecom webhooks
+ * (Ethio Telecom & Safaricom Ethiopia short codes).
+ * Rate-limited attempts are logged to DB for audit trail.
+ * Replies include Amharic + Oromo crop names for multilingual support.
  */
 app.post("/api/sms/inbound", async (req, res) => {
-  const { sender, text } = req.body;
+  const { messageId, provider, from, text } = req.body;
 
-  if (!sender || !text) {
-    return res.status(400).json({ error: "Missing sender or text" });
-  }
+  const sender = from || "ANONYMOUS";
+  const rawText = text || "";
+  const telecomProvider = provider || "ethio_telecom";
 
+  // Step A: Rate limiting — log blocked attempts to DB for audit
   const rateCheck = checkRateLimit(sender);
   if (!rateCheck.allowed) {
+    const rateLimitResponse = `Rate limit exceeded. Please wait ${rateCheck.retryAfterSec} seconds before sending another SMS request.`;
+
+    await prisma.smsMessage
+      .create({
+        data: {
+          sender,
+          intent: "RATE_LIMITED",
+          response: rateLimitResponse,
+          direction: "OUTBOUND",
+          status: "BLOCKED",
+        },
+      })
+      .catch(console.error);
+
     return res.status(429).json({
+      success: false,
       error: "Rate limit exceeded",
       retryAfterSec: rateCheck.retryAfterSec,
+      smsResponse: rateLimitResponse,
     });
   }
 
-  const parsed = parseSmsCommand(text);
+  // Step B: Parse command
+  const parsed = parseSmsCommand(rawText);
 
   try {
     const replyText = await withSystemContext(async (tx) => {
+      // Upsert user by phone number
       const user = await tx.user.upsert({
         where: { phone: sender },
         update: {},
         create: { phone: sender, role: "FARMER" },
       });
 
+      // Log inbound SMS
       await tx.smsMessage.create({
         data: {
           sender,
           intent: parsed.intent,
-          response: text,
+          response: rawText,
           direction: "INBOUND",
+          status: parsed.valid ? "PROCESSED" : "INVALID",
           userId: user.id,
         },
       });
@@ -559,7 +387,9 @@ app.post("/api/sms/inbound", async (req, res) => {
       let reply;
 
       if (!parsed.valid) {
-        reply = parsed.error + (parsed.helpText ? ` ${parsed.helpText}` : "");
+        reply =
+          `[Geberew Market SMS Help] ${parsed.error || "Invalid command."} ` +
+          (parsed.helpText || "Send PRICE TEFF or SELL TEFF 8500 10 ADAMA.");
       } else if (parsed.intent === "QUERY_PRICE") {
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
@@ -573,18 +403,23 @@ app.post("/api/sms/inbound", async (req, res) => {
             effectiveDate: { gte: startOfToday, lt: startOfTomorrow },
           },
           include: { crop: true, market: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
         });
 
         if (prices.length === 0) {
-          reply = `No verified price today for ${parsed.cropId}.`;
+          reply = `Geberew Market: No verified prices available for ${parsed.cropId} yet.`;
         } else {
-          const lines = prices.map(
-            (p) => `${p.market.name}: ${p.priceValue} ETB/${p.unit}`,
-          );
-          reply = `${parsed.cropId.toUpperCase()} — ${lines.join(", ")}`;
+          const latestPrice = prices[0];
+          const priceVal = Number(latestPrice.priceValue).toLocaleString();
+          const marketName = latestPrice.market
+            ? latestPrice.market.name
+            : "Merkato";
+          // Multilingual: English (Amharic / Oromo)
+          reply = `[Geberew Market] ${latestPrice.crop.nameEn} (${latestPrice.crop.nameAm} / ${latestPrice.crop.nameOm}): ${priceVal} ETB/${latestPrice.unit} at ${marketName}.`;
         }
       } else if (parsed.intent === "SUBMIT_LISTING") {
-        await tx.listing.create({
+        const listing = await tx.listing.create({
           data: {
             farmerId: user.id,
             cropId: parsed.cropId,
@@ -592,12 +427,16 @@ app.post("/api/sms/inbound", async (req, res) => {
             pickup: parsed.pickupLocation,
             contact: sender,
           },
+          include: { crop: true },
         });
-        reply = `Listing created: ${parsed.cropId}, qty ${parsed.quantity}, at ${parsed.pickupLocation}.`;
+
+        const cropName = listing.crop ? listing.crop.nameEn : parsed.cropId;
+        reply = `[Geberew Market Confirmation] Listing created for ${parsed.quantity} Qtl ${cropName} at ${parsed.price} ETB/Qtl (Location: ${parsed.pickupLocation}). Listing ID: ${listing.id.slice(0, 8)}.`;
       } else {
         reply = "Unrecognized command.";
       }
 
+      // Log outbound SMS response
       await tx.smsMessage.create({
         data: {
           sender,
@@ -612,18 +451,32 @@ app.post("/api/sms/inbound", async (req, res) => {
       return reply;
     });
 
-    res.status(200).json({ received: true, reply: replyText });
+    res.status(200).json({
+      success: true,
+      messageId: messageId || `msg_${Date.now()}`,
+      provider: telecomProvider,
+      intent: parsed.intent,
+      smsResponse: replyText,
+    });
   } catch (err) {
     console.error("Failed to process inbound SMS", err);
-    res.status(500).json({ error: "Failed to process SMS" });
+    res.status(500).json({
+      success: false,
+      error: "Failed to process SMS request",
+    });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Listings
+// ---------------------------------------------------------------------------
 
 /**
  * TASK 4/6 & 12: Farmer & Cooperative listing creation with input validation & rate limiting
  */
 app.post("/api/listings", listingSubmissionLimiter, async (req, res) => {
-  const { id, commodityId, quantity, grade, pickupLocation, contact } = req.body;
+  const { id, commodityId, quantity, grade, pickupLocation, contact } =
+    req.body;
 
   if (!id || !commodityId || !quantity || !pickupLocation || !contact) {
     return res.status(400).json({
@@ -650,9 +503,7 @@ app.post("/api/listings", listingSubmissionLimiter, async (req, res) => {
     const listing = await withFarmerContext(
       normalizedContact,
       async (tx, farmer) => {
-        const crop = await tx.crop.findUnique({
-          where: { id: commodityId },
-        });
+        const crop = await tx.crop.findUnique({ where: { id: commodityId } });
 
         if (!crop) {
           throw new HttpError(400, `Unknown commodityId: ${commodityId}`);
@@ -678,17 +529,12 @@ app.post("/api/listings", listingSubmissionLimiter, async (req, res) => {
       },
     );
 
-    res.status(201).json({
-      ok: true,
-      id: listing.id,
-    });
+    res.status(201).json({ ok: true, id: listing.id });
   } catch (err) {
     if (err instanceof HttpError)
       return res.status(err.status).json({ error: err.message });
     console.error("Failed to create listing", err);
-    res.status(500).json({
-      error: "Failed to create listing",
-    });
+    res.status(500).json({ error: "Failed to create listing" });
   }
 });
 
@@ -699,16 +545,9 @@ app.get("/api/listings", async (req, res) => {
   try {
     const listings = await withBuyerContext((tx) =>
       tx.listing.findMany({
-        where: {
-          status: "ACTIVE",
-        },
-        include: {
-          crop: true,
-          market: true,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
+        where: { status: "ACTIVE" },
+        include: { crop: true, market: true },
+        orderBy: { createdAt: "desc" },
       }),
     );
 
@@ -737,15 +576,11 @@ app.patch("/api/listings/:id", async (req, res) => {
 
   try {
     const existing = await withOperatorContext((tx) =>
-      tx.listing.findUnique({
-        where: { id: req.params.id },
-      }),
+      tx.listing.findUnique({ where: { id: req.params.id } }),
     );
 
     if (!existing) {
-      return res.status(404).json({
-        error: "Listing not found",
-      });
+      return res.status(404).json({ error: "Listing not found" });
     }
 
     const updated = await withFarmerContext(
@@ -754,22 +589,19 @@ app.patch("/api/listings/:id", async (req, res) => {
         tx.listing.update({
           where: { id: req.params.id },
           data: {
-            quantity: quantity !== undefined ? numericQuantity : existing.quantity,
+            quantity:
+              quantity !== undefined ? numericQuantity : existing.quantity,
             grade: grade !== undefined ? grade : existing.grade,
-            pickup: pickupLocation !== undefined ? pickupLocation : existing.pickup,
+            pickup:
+              pickupLocation !== undefined ? pickupLocation : existing.pickup,
           },
         }),
     );
 
-    res.json({
-      ok: true,
-      listing: updated,
-    });
+    res.json({ ok: true, listing: updated });
   } catch (err) {
     console.error("Failed to update listing", err);
-    res.status(500).json({
-      error: "Failed to update listing",
-    });
+    res.status(500).json({ error: "Failed to update listing" });
   }
 });
 
@@ -788,10 +620,7 @@ app.delete("/api/listings/:id", async (req, res) => {
 
     await withFarmerContext(
       existing.contact,
-      (tx) =>
-        tx.listing.delete({
-          where: { id: req.params.id },
-        }),
+      (tx) => tx.listing.delete({ where: { id: req.params.id } }),
     );
 
     res.json({ ok: true });
@@ -802,5 +631,4 @@ app.delete("/api/listings/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
->>>>>>> origin/main
+app.listen(PORT, () => console.log(`Backend API running on port ${PORT}`));

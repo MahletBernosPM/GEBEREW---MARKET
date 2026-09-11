@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-import React, { useState } from "react";
-=======
 import { useEffect, useState } from "react";
 
 const UNITS = ["quintal", "kg"];
@@ -14,7 +11,6 @@ export default function SubmissionForm({ onSubmitted }) {
   const [crops, setCrops] = useState([]);
   const [markets, setMarkets] = useState([]);
   const [refError, setRefError] = useState(false);
->>>>>>> origin/main
 
   const [form, setForm] = useState({
     cropId: "",
