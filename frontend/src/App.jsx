@@ -5,10 +5,12 @@ import FarmerListingForm from "./FarmerListingForm.jsx";
 import MyListings from "./MyListings.jsx";
 import CooperativeSubmissionForm from "./CooperativeSubmissionForm.jsx";
 import BuyerBrowse from "./component/BuyerBrowse.jsx";
+import PriceBoard from "./PriceBoard.jsx";
 
 export default function App() {
   const [activeView, setActiveView] = useState("dashboard");
-
+const [priceRefreshKey, setPriceRefreshKey] = useState(0);
+  
   return (
     <div className="min-h-screen bg-orange-50 flex flex-col">
       <Header
@@ -55,6 +57,9 @@ export default function App() {
         {activeView === "buyer" && (
           <BuyerBrowse />
         )}
+        {activeView === "priceboard" && (
+  <PriceBoard refreshKey={priceRefreshKey} />
+)}
 
       </main>
 

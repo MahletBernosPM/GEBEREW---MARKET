@@ -4,6 +4,7 @@ const Header=({ activeView, setActiveView }) =>{
     { key: "mylistings", label: "My Listings" },
     { key: "coop", label: "Cooperative Submission" },
     { key: "buyer", label: "Buyer Browse" },
+    { key: "priceboard", label: "Daily Price Board" },
   ];
 
   return (
