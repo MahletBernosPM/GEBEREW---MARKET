@@ -14,52 +14,67 @@
 // Multilingual crop mapping to standard commodity database IDs
 const CROP_MAP = {
   // Teff
-  'teff': 'teff',
-  'ጤፍ': 'teff',
-  'xaafii': 'teff',
-  'xafii': 'teff',
+  teff: "teff",
+  ጤፍ: "teff",
+  xaafii: "teff",
+  xafii: "teff",
 
   // Maize
-  'maize': 'maize',
-  'corn': 'maize',
-  'በቆሎ': 'maize',
-  'boqqolloo': 'maize',
-  'boqollo': 'maize',
+  maize: "maize",
+  corn: "maize",
+  በቆሎ: "maize",
+  boqqolloo: "maize",
+  boqollo: "maize",
 
   // Wheat
-  'wheat': 'wheat',
-  'ስንዴ': 'wheat',
-  'qamadii': 'wheat',
-  'qamadi': 'wheat',
+  wheat: "wheat",
+  ስንዴ: "wheat",
+  qamadii: "wheat",
+  qamadi: "wheat",
 
   // Red Onion
-  'red-onion': 'red-onion',
-  'red onion': 'red-onion',
-  'onion': 'red-onion',
-  'redonion': 'red-onion',
-  'ቀይ ሽንኩርት': 'red-onion',
-  'ቀይሽንኩርት': 'red-onion',
-  'ሽንኩርት': 'red-onion',
-  'qullubbii diimaa': 'red-onion',
-  'qullubbiidiimaa': 'red-onion',
-  'qullubbii': 'red-onion',
-  'qullubbii diima': 'red-onion',
+  "red-onion": "red-onion",
+  "red onion": "red-onion",
+  onion: "red-onion",
+  redonion: "red-onion",
+  "ቀይ ሽንኩርት": "red-onion",
+  ቀይሽንኩርት: "red-onion",
+  ሽንኩርት: "red-onion",
+  "qullubbii diimaa": "red-onion",
+  qullubbiidiimaa: "red-onion",
+  qullubbii: "red-onion",
+  "qullubbii diima": "red-onion",
 
   // Coffee
-  'coffee': 'coffee',
-  'ቡና': 'coffee',
-  'buna': 'coffee',
+  coffee: "coffee",
+  ቡና: "coffee",
+  buna: "coffee",
 };
 
 // Command Action Keywords
-const PRICE_KEYWORDS = new Set(['PRICE', 'QUERY', 'CHECK', 'ዋጋ', 'GATI', 'GATII']);
-const SELL_KEYWORDS = new Set(['SELL', 'LIST', 'OFFER', 'ሽያጭ', 'እሸጣለሁ', 'GURGURTAA', 'GURGURU']);
+const PRICE_KEYWORDS = new Set([
+  "PRICE",
+  "QUERY",
+  "CHECK",
+  "ዋጋ",
+  "GATI",
+  "GATII",
+]);
+const SELL_KEYWORDS = new Set([
+  "SELL",
+  "LIST",
+  "OFFER",
+  "ሽያጭ",
+  "እሸጣለሁ",
+  "GURGURTAA",
+  "GURGURU",
+]);
 
 /**
  * Normalizes input text into standardized tokens
  */
 function tokenize(text) {
-  if (!text || typeof text !== 'string') return [];
+  if (!text || typeof text !== "string") return [];
   return text.trim().toLowerCase().split(/\s+/);
 }
 
@@ -91,9 +106,10 @@ function parseSmsCommand(rawText) {
   if (!rawText || !rawText.trim()) {
     return {
       valid: false,
-      intent: 'UNKNOWN',
-      error: 'Empty SMS text received.',
-      helpText: 'Send "PRICE TEFF" or "SELL TEFF 8500 10 ADAMA" / "ዋጋ ጤፍ" / "GATI XAAFII"',
+      intent: "UNKNOWN",
+      error: "Empty SMS text received.",
+      helpText:
+        'Send "PRICE TEFF" or "SELL TEFF 8500 10 ADAMA" / "ዋጋ ጤፍ" / "GATI XAAFII"',
     };
   }
 
@@ -105,9 +121,10 @@ function parseSmsCommand(rawText) {
     if (tokens.length < 2) {
       return {
         valid: false,
-        intent: 'QUERY_PRICE',
-        error: 'Missing crop name for price query.',
-        helpText: 'Use format: PRICE <CROP> (e.g. PRICE TEFF, ዋጋ ጤፍ, GATI XAAFII)',
+        intent: "QUERY_PRICE",
+        error: "Missing crop name for price query.",
+        helpText:
+          "Use format: PRICE <CROP> (e.g. PRICE TEFF, ዋጋ ጤፍ, GATI XAAFII)",
       };
     }
 
@@ -115,15 +132,16 @@ function parseSmsCommand(rawText) {
     if (!cropId) {
       return {
         valid: false,
-        intent: 'QUERY_PRICE',
-        error: `Unrecognized crop: "${tokens.slice(1).join(' ')}"`,
-        helpText: 'Supported crops: Teff (ጤፍ/Xaafii), Maize (በቆሎ/Boqqolloo), Wheat (ስንዴ/Qamadii), Red Onion (ቀይ ሽንኩርት/Qullubbii), Coffee (ቡና/Buna).',
+        intent: "QUERY_PRICE",
+        error: `Unrecognized crop: "${tokens.slice(1).join(" ")}"`,
+        helpText:
+          "Supported crops: Teff (ጤፍ/Xaafii), Maize (በቆሎ/Boqqolloo), Wheat (ስንዴ/Qamadii), Red Onion (ቀይ ሽንኩርት/Qullubbii), Coffee (ቡና/Buna).",
       };
     }
 
     return {
       valid: true,
-      intent: 'QUERY_PRICE',
+      intent: "QUERY_PRICE",
       cropId,
     };
   }
@@ -134,9 +152,10 @@ function parseSmsCommand(rawText) {
     if (tokens.length < 3) {
       return {
         valid: false,
-        intent: 'SUBMIT_LISTING',
-        error: 'Incomplete listing command.',
-        helpText: 'Use format: SELL <CROP> <PRICE> [QUANTITY] <LOCATION> (e.g. SELL TEFF 8500 10 ADAMA)',
+        intent: "SUBMIT_LISTING",
+        error: "Incomplete listing command.",
+        helpText:
+          "Use format: SELL <CROP> <PRICE> [QUANTITY] <LOCATION> (e.g. SELL TEFF 8500 10 ADAMA)",
       };
     }
 
@@ -144,9 +163,9 @@ function parseSmsCommand(rawText) {
     if (!cropId) {
       return {
         valid: false,
-        intent: 'SUBMIT_LISTING',
+        intent: "SUBMIT_LISTING",
         error: `Unrecognized crop: "${tokens[1]}"`,
-        helpText: 'Supported crops: Teff, Maize, Wheat, Red Onion, Coffee.',
+        helpText: "Supported crops: Teff, Maize, Wheat, Red Onion, Coffee.",
       };
     }
 
@@ -154,9 +173,9 @@ function parseSmsCommand(rawText) {
     if (priceIndex >= tokens.length) {
       return {
         valid: false,
-        intent: 'SUBMIT_LISTING',
-        error: 'Missing price amount.',
-        helpText: 'Use format: SELL <CROP> <PRICE> [QUANTITY] <LOCATION>',
+        intent: "SUBMIT_LISTING",
+        error: "Missing price amount.",
+        helpText: "Use format: SELL <CROP> <PRICE> [QUANTITY] <LOCATION>",
       };
     }
 
@@ -164,7 +183,7 @@ function parseSmsCommand(rawText) {
     if (isNaN(price) || price <= 0) {
       return {
         valid: false,
-        intent: 'SUBMIT_LISTING',
+        intent: "SUBMIT_LISTING",
         error: `Invalid price amount: "${tokens[priceIndex]}"`,
       };
     }
@@ -182,11 +201,12 @@ function parseSmsCommand(rawText) {
       }
     }
 
-    const location = tokens.slice(locationIndex).join(' ').toUpperCase() || 'GENERAL';
+    const location =
+      tokens.slice(locationIndex).join(" ").toUpperCase() || "GENERAL";
 
     return {
       valid: true,
-      intent: 'SUBMIT_LISTING',
+      intent: "SUBMIT_LISTING",
       cropId,
       price,
       quantity,
@@ -199,7 +219,7 @@ function parseSmsCommand(rawText) {
   if (directCrop.cropId) {
     return {
       valid: true,
-      intent: 'QUERY_PRICE',
+      intent: "QUERY_PRICE",
       cropId: directCrop.cropId,
     };
   }
@@ -207,9 +227,10 @@ function parseSmsCommand(rawText) {
   // UNKNOWN INTENT
   return {
     valid: false,
-    intent: 'UNKNOWN',
+    intent: "UNKNOWN",
     error: `Unknown command "${tokens[0]}".`,
-    helpText: 'Available commands: PRICE <CROP> (e.g. PRICE TEFF / ዋጋ ጤፍ / GATI XAAFII) or SELL <CROP> <PRICE> <QTY> <LOCATION>.',
+    helpText:
+      "Available commands: PRICE <CROP> (e.g. PRICE TEFF / ዋጋ ጤፍ / GATI XAAFII) or SELL <CROP> <PRICE> <QTY> <LOCATION>.",
   };
 }
 
